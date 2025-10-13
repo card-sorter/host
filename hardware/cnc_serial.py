@@ -1,0 +1,76 @@
+import asyncio
+import serial
+from aio_serial import AIOSerial
+import config
+from queue_manager import event_queue
+from common import *
+
+
+class SerialController:
+    def __init__(self, port=config.SERIAL_PORT, baud_rate=config.BAUD_RATE):
+        self._port = port
+        self._baud_rate = baud_rate
+        self._serial = None
+        self._loop = asyncio.get_event_loop()
+
+    def _on_read(self):
+        pass
+
+    async def open(self):
+        try:
+            self._serial = serial.Serial(self._port, self._baud_rate)
+            self._loop.add_reader(self._serial.fd, self._on_read)
+
+        except serial.serialutil.SerialException as e:
+            print(e)
+            """
+            await asyncio.sleep(1)
+            while self._serial.in_waiting:
+                out = self._serial.readline().strip()
+                print(out)
+                if out.find(b"ok") > -1:
+                    print('ok, connected')
+                    event_queue.put_nowait(NotifyEvent(f"Connected to {self._port}."))
+                elif out.find(b"Alarm") > -1:
+                    print('Alarm')
+                    event_queue.put_nowait(NotifyEvent(f"{self._port} in Alarm"))
+                else:
+                    self._serial.close()
+                    self._serial = None
+                    event_queue.put_nowait(ErrorEvent(out))
+        except serial.SerialException as e:
+            print(e)
+            event_queue.put_nowait(ErrorEvent(e))
+            self._serial.close()
+            self._serial = None"""
+
+    async def close(self):
+        if self._serial is not None:
+            self._serial.close()
+            self._serial = None
+            event_queue.put_nowait(NotifyEvent(f"Disconnected from {self._port}."))
+
+    async def home(self):
+        if self._serial is not None:
+            self._serial.reset_input_buffer()
+            self._serial.write(b"$X\n$H\n")
+            while True:
+                out = self._serial.readline().strip()
+                if out.find(b"ok") > -1:
+                    event_queue.put_nowait(NotifyEvent(f"{self._port} homing complete."))
+                    break
+                if out.find(b"error") > -1:
+                    event_queue.put_nowait(ErrorEvent(out))
+                    break
+
+async def main():
+    controller = SerialController()
+    await controller.open()
+    print("Connected")
+    await controller.home()
+    print("homed")
+    await controller.close()
+    print("closed")
+
+if __name__ == "__main__":
+    asyncio.run(main())
