@@ -1,6 +1,5 @@
 import asyncio
 import serial
-from aio_serial import AIOSerial
 import config
 from queue_manager import event_queue
 from common import *
@@ -12,14 +11,37 @@ class SerialController:
         self._baud_rate = baud_rate
         self._serial = None
         self._loop = asyncio.get_event_loop()
+        self._rbuf = b''
+        self._rbytes = 0
+        self._wbuf = b''
+        self._rfuture = None
+        self._delimiter = None
 
     def _on_read(self):
-        pass
+        data = self._serial.read(4096)
+        self._rbuf += data
+        self._rbytes = len(self._rbuf)
+        self._check_pending_read()
+
+    def _check_pending_read(self):
+        future = self._rfuture
+        if future is not None:
+            # get data from buffer
+            pos = self._rbuf.find(self._delimiter)
+            if pos > -1:
+                ret = self._rbuf[:(pos+len(self._delimiter))]
+                self._rbuf = self._rbuf[(pos+len(self._delimiter)):]
+                self._delimiter = self._rfuture = None
+                future.set_result(ret)
+                return future
 
     async def open(self):
         try:
+            self._rfuture = asyncio.Future()
+            self._delimiter = b"Grbl 1.1h ['$' for help]\n"
             self._serial = serial.Serial(self._port, self._baud_rate)
             self._loop.add_reader(self._serial.fd, self._on_read)
+            read = await self._rfuture
 
         except serial.serialutil.SerialException as e:
             print(e)
