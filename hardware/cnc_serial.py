@@ -7,7 +7,7 @@ from common import *
 
 class SerialController:
     def __init__(self, port=config.SERIAL_PORT, baud_rate=config.BAUD_RATE):
-        self._port = port
+        self.port = port
         self._baud_rate = baud_rate
         self._serial = None
         self._loop = asyncio.get_event_loop()
@@ -39,9 +39,14 @@ class SerialController:
         try:
             self._rfuture = asyncio.Future()
             self._delimiter = b"Grbl 1.1h ['$' for help]\n"
-            self._serial = serial.Serial(self._port, self._baud_rate)
-            self._loop.add_reader(self._serial.fd, self._on_read)
-            read = await self._rfuture
+            self._serial = serial.Serial(self.port, self._baud_rate)
+            self._loop.add_reader(self._serial.fileno(), self._on_read)
+            await asyncio.wait_for(self._rfuture, timeout=5)
+            print('Serial port opened')
+            event_queue.put_nowait(NotifyEvent(f"Connected to {self.port}"))
+
+        except asyncio.TimeoutError:
+            event_queue.put_nowait(ErrorEvent(f"Timeout when connecting to {self.port}"))
 
         except serial.serialutil.SerialException as e:
             print(e)
@@ -70,7 +75,7 @@ class SerialController:
         if self._serial is not None:
             self._serial.close()
             self._serial = None
-            event_queue.put_nowait(NotifyEvent(f"Disconnected from {self._port}."))
+            event_queue.put_nowait(NotifyEvent(f"Disconnected from {self.port}."))
 
     async def home(self):
         if self._serial is not None:
@@ -79,7 +84,7 @@ class SerialController:
             while True:
                 out = self._serial.readline().strip()
                 if out.find(b"ok") > -1:
-                    event_queue.put_nowait(NotifyEvent(f"{self._port} homing complete."))
+                    event_queue.put_nowait(NotifyEvent(f"{self.port} homing complete."))
                     break
                 if out.find(b"error") > -1:
                     event_queue.put_nowait(ErrorEvent(out))
@@ -89,10 +94,6 @@ async def main():
     controller = SerialController()
     await controller.open()
     print("Connected")
-    await controller.home()
-    print("homed")
-    await controller.close()
-    print("closed")
 
 if __name__ == "__main__":
     asyncio.run(main())
