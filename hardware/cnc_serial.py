@@ -18,9 +18,10 @@ class SerialController:
         self._delimiter = None
 
     def _on_read(self):
-        data = self._serial.read(4096)
+        data = self._serial.read(self._serial.in_waiting)
         self._rbuf += data
         self._rbytes = len(self._rbuf)
+        print(self._rbuf)
         self._check_pending_read()
 
     def _check_pending_read(self):
@@ -38,14 +39,17 @@ class SerialController:
     async def open(self):
         try:
             self._rfuture = asyncio.Future()
-            self._delimiter = b"Grbl 1.1h ['$' for help]\n"
+            self._delimiter = b"Grbl 1.1h ['$' for help]\r\n"
             self._serial = serial.Serial(self.port, self._baud_rate)
             self._loop.add_reader(self._serial.fileno(), self._on_read)
-            await asyncio.wait_for(self._rfuture, timeout=5)
+            print("start")
+            msg = await asyncio.wait_for(self._rfuture, timeout=5.0)
             print('Serial port opened')
+            print(msg)
             event_queue.put_nowait(NotifyEvent(f"Connected to {self.port}"))
 
         except asyncio.TimeoutError:
+            print("timeout")
             event_queue.put_nowait(ErrorEvent(f"Timeout when connecting to {self.port}"))
 
         except serial.serialutil.SerialException as e:
@@ -93,7 +97,6 @@ class SerialController:
 async def main():
     controller = SerialController()
     await controller.open()
-    print("Connected")
 
 if __name__ == "__main__":
     asyncio.run(main())
