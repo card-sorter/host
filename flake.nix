@@ -1,47 +1,57 @@
 {
-  description = "A very basic flake";
-
+  description = "Python development environment with uv";
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-
-    # This section will allow us to create a python environment
-    # with specific predefined python packages from PyPi
-    pypi-deps-db = {
-      url = "github:DavHau/pypi-deps-db";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.mach-nix.follows = "mach-nix";
-    };
-    mach-nix = {
-      url = "github:DavHau/mach-nix/3.5.0";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.pypi-deps-db.follows = "pypi-deps-db";
-    };
   };
-
-  outputs = { self, nixpkgs, flake-utils, mach-nix, ... }@attr:
-  flake-utils.lib.eachDefaultSystem (system:
-    let
-      pkgs = import nixpkgs { inherit system; };
-
-      # create a custom python environment
-      myPython = mach-nix.lib.${system}.mkPython {
-        # specify the base version of python you with to use
-        python = "python310";
-
-        requirements = ''
-          pyserial
-        '';
-      };
-    in {
-      devShell = pkgs.mkShell {
-        nativeBuildInputs = [
-          # Now you can use your custom python environemt!
-          # This should also work for `buildInputs` and so on!
-          myPython
-        ];
-      };
-    }
-  );
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            python313
+            uv  # Add uv to the build inputs
+            stdenv.cc.cc
+            zlib
+            fuse3
+            icu
+            nss
+            openssl
+            curl
+            expat
+            xorg.libX11
+            vulkan-headers
+            vulkan-loader
+            vulkan-tools
+          ];
+          shellHook = ''
+            export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [
+              pkgs.stdenv.cc.cc
+              pkgs.zlib
+              pkgs.fuse3
+              pkgs.icu
+              pkgs.nss
+              pkgs.openssl
+              pkgs.curl
+              pkgs.expat
+              pkgs.xorg.libX11
+              pkgs.vulkan-headers
+              pkgs.vulkan-loader
+              pkgs.vulkan-tools
+            ]}:$LD_LIBRARY_PATH
+            # Create a virtual environment if it doesn't exist
+            if [ ! -d ".venv" ]; then
+              uv venv .venv
+            fi
+            # Activate the virtual environment
+            source .venv/bin/activate
+            # Alias pip to uv for faster package installation
+            alias pip="uv pip"
+          '';
+        };
+      }
+    );
 }

@@ -16,6 +16,7 @@ class SerialController:
         self._wbuf = b''
         self._rfuture = None
         self._delimiter = None
+        self._WCO = None
 
     def _on_read(self):
         try:
@@ -55,18 +56,18 @@ class SerialController:
 
         self._wbuf = self._wbuf + data
         if need_add_writer:
-            self._loop.add_writer(self._serial.fd, self._on_write, None)
+            self._loop.add_writer(self._serial.fd, self._on_write)
         return len(data)
 
     def _clear_buffer(self):
         self._serial.reset_input_buffer()
         self._rbuf = b""
 
-    async def send_command(self, command: str, delimiter: bytes=b"\n", timeout: float=20.0)->str|None:
+    async def send_command(self, command: str, delimiter: str="\n", timeout: float=20.0)->str:
         """
         Send a command to GRBL.
         Will return a string including the delimiter upon command completion.
-        Upon timeout, will return 'Timeout'.
+        Upon timeout, will return 'Timeout' and close the connection.
         If not connected, will return None.
         """
         if self._serial is not None:
@@ -75,21 +76,51 @@ class SerialController:
 
             self._clear_buffer()
             self._rfuture = self._loop.create_future()
-            self._delimiter = delimiter
-
+            self._delimiter = delimiter.encode("utf-8")
+            if command.find("\n") == -1:
+                command = command + "\n"
             command = command.encode("utf-8")
-
             await self._write(command)
-
             try:
                 ret = await asyncio.wait_for(self._rfuture, timeout)
-                return ret
+                return ret.decode("utf-8")
             except asyncio.TimeoutError:
-                self._rfuture = None
                 event_queue.put_nowait(ErrorEvent(f"Timeout on {self.port} when running {command}"))
+                self._loop.remove_writer(self._serial.fd)
+                await self.close()
+                self._rfuture = None
+                self._rbuf = b""
                 return "Timeout"
         event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
-        return None
+        return "Not Connected"
+
+    async def get_position(self)->dict|bool:
+        pos = await self.send_command("?")
+        if pos.find(">") == -1:
+            return False
+        ret = {}
+
+        pos = pos.strip().strip("<>")
+        parts = pos.split("|")
+
+        ret["state"] = parts.pop(0)
+
+        for part in parts:
+            if ":" not in part:
+                continue
+            (label, values) = part.split(":", 1)
+            if label in ["MPos", "FS", "WCO"]:
+                ret[label] = list(map(float, values.split(",")))
+            else:
+                ret[label] = values
+
+        if "WCO" in ret:
+            self._WCO = ret["WCO"]
+
+        ret["WPos"] = [m - w for m, w in zip(ret["MPos"], self._WCO)]
+
+        return ret
+
 
 
     async def open(self)->str:
@@ -105,7 +136,7 @@ class SerialController:
             self._rfuture = self._loop.create_future()
             self._delimiter = config.GRBL_CONNECTION
             self._serial = serial.Serial(self.port, self._baud_rate)
-            self._loop.add_reader(self._serial.fileno(), self._on_read, None)
+            self._loop.add_reader(self._serial.fileno(), self._on_read)
             await asyncio.wait_for(self._rfuture, timeout=5.0)
             await self.send_command("$X\n")
             await asyncio.sleep(0.5)
@@ -147,7 +178,8 @@ class SerialController:
         """
         if self._serial is not None:
             result = await self.send_command("$H\n")
-            if result.find(str(b"ok\r\n")) > -1:
+            if result.find("ok\r\n") > -1:
+                await self.send_command("G92 X0 Y0 Z0")
                 return "ok"
             event_queue.put_nowait(ErrorEvent(f"Homing failed on {self.port}: {result}"))
             return result
@@ -159,7 +191,16 @@ async def main():
     controller = SerialController()
     print(await controller.open())
     print(await controller.home())
-    print(await controller.send_command("?\n"))
+    count = 0
+    for _ in range(1):
+        if await controller.send_command("G0 X50 Y0", timeout=3) == "ok\r\n":
+            count = count + 1
+        if await controller.send_command("G0 Z-10", timeout=3) == "ok\r\n":
+            count = count + 1
+    print(await controller.send_command("G4 P0", timeout=3) == "ok\r\n")
+    print(await controller.send_command("?", timeout=3))
+    print("done")
+    print(count)
     await controller.close()
 
 if __name__ == "__main__":

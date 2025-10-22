@@ -62,3 +62,6 @@ class Bin(list):
     @property
     def z(self):
         return self._z
+
+    def set_z(self, z):
+        self._z = z
