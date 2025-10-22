@@ -6,9 +6,11 @@ class Event:
     def __str__(self):
         return str(self._value)
 
+    @property
     def type(self):
         return self._type
 
+    @property
     def value(self):
         return self._value
 
