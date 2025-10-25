@@ -49,7 +49,7 @@ class Bin(list):
         self._x = x
         self._y = y
         self._z = z
-        self.barcode = ""
+        self.scanned = False
 
     @property
     def x(self):

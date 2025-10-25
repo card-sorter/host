@@ -1,6 +1,9 @@
 import asyncio
 import random
 import time
+
+import numpy as np
+
 import config
 from cnc_serial import SerialController
 from common import Bin
@@ -44,7 +47,8 @@ class HAL:
 
 
     async def _check_disconnection(self) -> bool:
-        return False
+        # TODO: handle random disconnects
+        pass
 
     async def _send_command(self, command: str, find: str = "ok", delim="\n", timeout: int=5):
         if not self._homed:
@@ -70,7 +74,7 @@ class HAL:
         height = bin.z + self._probe_safety_distance
         if not await self._move_to_height(height):
             return False
-        timeout = abs(self._bottom_limit-height)/self._probe_feedrate*60 + 5
+        timeout = abs(self._bottom_limit-height)/self._probe_feedrate*60 + 2
         data = await self._send_command(f"G38.2 Z{self._bottom_limit} F{self._probe_feedrate}",
                                         timeout=timeout,
                                         delim="ok\r\n")
@@ -107,7 +111,7 @@ class HAL:
         if not await self._send_command("G04 P0.1"): return False
         return await self._move_to_height(self._height)
 
-    async def move_card(self, source, target):
+    async def move_card(self, source, target) -> bool:
         if self._connected:
             if not await self._move_to_bin(source): return False
             if not await self._lift_card(source): return False
@@ -115,9 +119,8 @@ class HAL:
             return await self._drop_card(target)
         return False
 
-    async def scan_card(self, source, target):
+    async def scan_card(self, source, target) -> np.ndarray:
         pass
-
 
 async def main():
     hal = HAL()
