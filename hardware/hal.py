@@ -1,6 +1,6 @@
 import asyncio
 import random
-
+import time
 import config
 from cnc_serial import SerialController
 from common import Bin
@@ -18,6 +18,7 @@ class HAL:
         self._camera = None
         self._homed = False
         self._card_drop_offset = config.CARD_DROP_OFFSET
+        self._card_lift_delay = config.CARD_LIFT_DELAY
 
     @property
     def bins(self):
@@ -69,7 +70,7 @@ class HAL:
         height = bin.z + self._probe_safety_distance
         if not await self._move_to_height(height):
             return False
-        timeout = abs(self._bottom_limit-height)/self._probe_feedrate*60 + 2
+        timeout = abs(self._bottom_limit-height)/self._probe_feedrate*60 + 5
         data = await self._send_command(f"G38.2 Z{self._bottom_limit} F{self._probe_feedrate}",
                                         timeout=timeout,
                                         delim="ok\r\n")
@@ -93,8 +94,9 @@ class HAL:
     async def _lift_card(self, bin: Bin) -> bool:
         if not await self._probe_height(bin): return False
         if not await self._set_vacuum(True, False): return False
-        if not await self._move_to_height(bin.z + self._card_drop_offset): return False
-        if not await self._send_command("G04 P0.5"): return False
+        if not await self._send_command(f"G01 Z{bin.z + 5} F500"): return False
+        if not await self._send_command(f"G01 Z{bin.z + self._card_drop_offset} F2000"): return False
+        #if not await self._send_command(f"G04 P{self._card_lift_delay}"): return False
         return await self._move_to_height(self._height)
 
     async def _drop_card(self, bin: Bin) -> bool:
@@ -122,11 +124,16 @@ async def main():
     print(await hal.open())
     print("connected")
     bins = hal.bins
-    binlist = [0, 1, 3]
-    for _ in range(30):
-        random.shuffle(binlist)
-        print(await hal.move_card(bins[binlist[0]], bins[binlist[1]]))
+    binlist = [0, 3]
+    await hal.move_card(bins[0], bins[3])
+    start = time.time()
+    count = 50
+    for i in range(count):
+        print(await hal.move_card(bins[1], bins[binlist[i%2]]))
     await hal.close()
+    end = time.time()
+    print("average time per move:")
+    print((end-start)/count)
 
 if __name__ == "__main__":
     asyncio.run(main())
