@@ -1,6 +1,5 @@
 RPC_HOST = "localhost"
 RPC_PORT = 8080
-DB_URL = "sqlite:///test.db"
 BAUD_RATE = 115200
 SERIAL_PORT = "/dev/ttyACM0"
 GRBL_CONNECTION = b"Grbl 1.1h ['$' for help]\r\n"
@@ -13,3 +12,6 @@ PROBE_SAFETY_DISTANCE = 4
 PROBE_FEEDRATE = 500
 CARD_DROP_OFFSET = 15
 CARD_LIFT_DELAY = 1
+DATABASE = {
+    "path": "db/sorter.db"
+}

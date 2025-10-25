@@ -50,6 +50,11 @@ class Bin(list):
         self._y = y
         self._z = z
         self.scanned = False
+        self.barcode = None
+
+    @property
+    def empty(self):
+        return len(self) == 0
 
     @property
     def x(self):

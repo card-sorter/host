@@ -119,7 +119,7 @@ class HAL:
             return await self._drop_card(target)
         return False
 
-    async def scan_card(self, source, target) -> np.ndarray:
+    async def scan_card(self, source, target) -> None|np.ndarray:
         pass
 
 async def main():

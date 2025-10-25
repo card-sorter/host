@@ -18,6 +18,12 @@ class SerialController:
         self._delimiter = None
         self._WCO = None
 
+    async def __aenter__(self):
+        await self.open()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
     def _on_read(self):
         try:
             data = self._serial.read(self._serial.in_waiting)

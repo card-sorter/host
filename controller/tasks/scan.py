@@ -1,6 +1,6 @@
-from controller.tasks.task import *
 import cv2
 import numpy as np
+from controller.tasks.task import *
 
 class Scan(TaskController):
     def __init__(self, ctx: TaskContext):
@@ -13,6 +13,12 @@ class Scan(TaskController):
 
     async def run(self):
         # scan top card of every bin, find an empty one
+        for b in self.ctx.bins:
+            img = await self.ctx.hal.scan_card(b, b)
+            if img:
+                barcode = self.scan_barcode(img)
+                if barcode:
+                    pass
         # if top card is barcode, load from db
         # if top card isn't a barcode, then set bin as empty
         # set source bin to unscanned bin
@@ -25,6 +31,3 @@ class Scan(TaskController):
             # create scan_image task, pass card object
 
         #done
-
-
-        pass
