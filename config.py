@@ -13,5 +13,5 @@ PROBE_FEEDRATE = 500
 CARD_DROP_OFFSET = 15
 CARD_LIFT_DELAY = 1
 DATABASE = {
-    "path": "db/sorter.db"
+    "path": "sorter.db"
 }

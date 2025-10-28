@@ -300,3 +300,4 @@ __marimo__/
 # Nix
 flake.lock
 flake.nix
+/db/sorter.db

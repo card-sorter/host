@@ -1,3 +1,5 @@
+import asyncio
+
 import aiosqlite
 from config import DATABASE
 
@@ -15,6 +17,7 @@ class DBInterface:
 
     async def __aenter__(self):
         await self.open()
+        return self
 
     async def close(self):
         if self.db:
@@ -37,7 +40,7 @@ class DBInterface:
         return await self.db.commit() == True
 
     async def _setup(self):
-        cur = await self._execute('SELECT name FROM sqlite_master WHERE name ="Bins"')
+        cur = await self._execute("SELECT name FROM sqlite_master WHERE name = 'Bins'")
         if cur and await cur.fetchone() is None:
             query = '''
             CREATE TABLE Bins (
@@ -46,7 +49,7 @@ class DBInterface:
                 PRIMARY KEY (BinID)
             );'''
             await cur.execute(query)
-        cur = await self._execute('SELECT name FROM sqlite_master WHERE name ="Cards"')
+        cur = await self._execute("SELECT name FROM sqlite_master WHERE name = 'Cards'")
         if cur and await cur.fetchone() is None:
             query = '''
             CREATE TABLE Cards (
@@ -60,7 +63,7 @@ class DBInterface:
             await cur.execute(query)
 
     async def check_barcode(self, barcode: str):
-        cur = await self._execute(f'SELECT BinID FROM Bins WHERE Barcode ="{barcode}"')
+        cur = await self._execute(f"SELECT BinID FROM Bins WHERE Barcode ='{barcode}'")
         if cur:
             ret = await cur.fetchone()
             if ret:
@@ -68,7 +71,13 @@ class DBInterface:
         return None
 
     async def add_barcode(self, barcode: str):
-        query = f'INSERT INTO Bins (Barcode) VALUES ({barcode});'
+        query = f"INSERT INTO Bins (Barcode) VALUES ('{barcode}');"
         await self._execute(query)
         await self._commit()
 
+async def main():
+    async with DBInterface() as db:
+        print(await db.check_barcode("abc"))
+
+if __name__ == "__main__":
+    asyncio.run(main())
