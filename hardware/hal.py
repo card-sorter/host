@@ -45,7 +45,6 @@ class HAL:
         await self._serialController.close()
         self._connected = False
 
-
     async def _check_disconnection(self) -> bool:
         # TODO: handle random disconnects
         pass
@@ -75,9 +74,11 @@ class HAL:
         if not await self._move_to_height(height):
             return False
         timeout = abs(self._bottom_limit-height)/self._probe_feedrate*60 + 2
-        data = await self._send_command(f"G38.2 Z{self._bottom_limit} F{self._probe_feedrate}",
-                                        timeout=timeout,
-                                        delim="ok\r\n")
+        data = await self._send_command(
+            f"G38.2 Z{self._bottom_limit} F{self._probe_feedrate}",
+            timeout=timeout,
+            delim="ok\r\n"
+        )
         if not data:
             return False
         if "PRB" in data:

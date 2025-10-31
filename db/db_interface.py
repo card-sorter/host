@@ -3,6 +3,7 @@ import asyncio
 import aiosqlite
 from config import DATABASE
 
+
 class DBInterface:
     def __init__(self):
         self.db = None
@@ -20,6 +21,7 @@ class DBInterface:
         return self
 
     async def close(self):
+        # Close DB connection.
         if self.db:
             await self.db.close()
             self.db = None
@@ -33,14 +35,16 @@ class DBInterface:
             return None
         cursor = await self.db.execute(statement)
         return cursor
-    
+
     async def _commit(self) -> bool | None:
         if self.db is None:
             return None
-        return await self.db.commit() == True
+        return bool(await self.db.commit())
 
     async def _setup(self):
-        cur = await self._execute("SELECT name FROM sqlite_master WHERE name = 'Bins'")
+        cur = await self._execute(
+            "SELECT name FROM sqlite_master WHERE name = 'Bins'"
+        )
         if cur and await cur.fetchone() is None:
             query = '''
             CREATE TABLE Bins (
@@ -49,7 +53,9 @@ class DBInterface:
                 PRIMARY KEY (BinID)
             );'''
             await cur.execute(query)
-        cur = await self._execute("SELECT name FROM sqlite_master WHERE name = 'Cards'")
+        cur = await self._execute(
+            "SELECT name FROM sqlite_master WHERE name = 'Cards'"
+        )
         if cur and await cur.fetchone() is None:
             query = '''
             CREATE TABLE Cards (
@@ -63,7 +69,9 @@ class DBInterface:
             await cur.execute(query)
 
     async def check_barcode(self, barcode: str):
-        cur = await self._execute(f"SELECT BinID FROM Bins WHERE Barcode ='{barcode}'")
+        cur = await self._execute(
+            f"SELECT BinID FROM Bins WHERE Barcode ='{barcode}'"
+        )
         if cur:
             ret = await cur.fetchone()
             if ret:
@@ -74,6 +82,7 @@ class DBInterface:
         query = f"INSERT INTO Bins (Barcode) VALUES ('{barcode}');"
         await self._execute(query)
         await self._commit()
+
 
 async def main():
     async with DBInterface() as db:
