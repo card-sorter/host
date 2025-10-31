@@ -2,7 +2,7 @@ import asyncio
 import random
 import time
 
-import numpy as np
+#import numpy as np
 
 import config
 from cnc_serial import SerialController
@@ -119,20 +119,20 @@ class HAL:
             return await self._drop_card(target)
         return False
 
-    async def scan_card(self, source, target) -> None|np.ndarray:
-        pass
+#    async def scan_card(self, source, target) -> None|np.ndarray:
+#        pass
 
 async def main():
     hal = HAL()
     print(await hal.open())
     print("connected")
     bins = hal.bins
-    binlist = [0, 3]
-    await hal.move_card(bins[0], bins[3])
+    binlist = [1, 3]
+    await hal.move_card(bins[1], bins[3])
     start = time.time()
     count = 50
     for i in range(count):
-        print(await hal.move_card(bins[1], bins[binlist[i%2]]))
+        print(await hal.move_card(bins[4], bins[binlist[i%2]]))
     await hal.close()
     end = time.time()
     print("average time per move:")
