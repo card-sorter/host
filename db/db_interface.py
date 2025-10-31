@@ -21,9 +21,7 @@ class DBInterface:
         return self
 
     async def close(self):
-        '''
-        Close DB connection.
-        '''
+        # Close DB connection.
         if self.db:
             await self.db.close()
             self.db = None
