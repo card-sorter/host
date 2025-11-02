@@ -1,16 +1,15 @@
 import asyncio
-import random
 import time
-
-#import numpy as np
-
+from typing import final
+import numpy as np
 import config
-from cnc_serial import SerialController
+from .cnc_serial import SerialController
 from common import Bin
 
 
+@final
 class HAL:
-    def __init__(self, port=config.SERIAL_PORT, baud_rate=config.BAUD_RATE):
+    def __init__(self, port:str=config.SERIAL_PORT, baud_rate:int=config.BAUD_RATE):
         self._connected = False
         self._serialController = SerialController(port=port, baud_rate=baud_rate)
         self._bins = [Bin(pos[0], pos[1], config.BIN_HEIGHT) for pos in config.BIN_POSITIONS]
@@ -120,8 +119,8 @@ class HAL:
             return await self._drop_card(target)
         return False
 
-#    async def scan_card(self, source, target) -> None|np.ndarray:
-#        pass
+    async def scan_card(self, source, target) -> None|np.ndarray:
+        pass
 
 async def main():
     hal = HAL()
