@@ -3,6 +3,7 @@ Scans barcodes and adds them to the barcodes table.
 These barcodes can be used in future tasks to denote
 pre-scanned bins or that it is the bottom of the bin.
 """
+import asyncio
 from typing import override
 
 from controller.tasks.task import *
@@ -21,11 +22,24 @@ class ScanBarcodes(TaskController):
     @override
     async def run(self):
         target = None
-        for b in self.ctx.bins:
+        bins = self.ctx.default_bins
+        for b in bins:
             img = await self.ctx.hal.scan_card(b, b)
             if img:
                 if not self.scan_barcode(img):
                     b.scanned = True
                     target = b
-
-
+                    bins.remove(b)
+            else:
+                raise Exception("Take image failed")
+        async with asyncio.TaskGroup() as tg:
+            for b in bins:
+                while True:
+                    img = await self.ctx.hal.scan_card(b, target)
+                    if img:
+                        text = self.scan_barcode(img)
+                        if text:
+                            tg.create_task(self.ctx.database.add_barcode(text))
+                        else:
+                            target = b
+                            break

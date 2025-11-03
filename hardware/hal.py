@@ -13,6 +13,7 @@ class HAL:
         self._connected = False
         self._serialController = SerialController(port=port, baud_rate=baud_rate)
         self._bins = [Bin(pos[0], pos[1], config.BIN_HEIGHT) for pos in config.BIN_POSITIONS]
+        self._camera_bin = config.CAMERA_BIN
         self._height = config.MOVEMENT_HEIGHT
         self._bottom_limit = config.BIN_BOTTOM_LIMIT
         self._probe_safety_distance = config.PROBE_SAFETY_DISTANCE
@@ -26,6 +27,12 @@ class HAL:
     @property
     def bins(self):
         return self._bins
+
+    @property
+    def default_bins(self):
+        ret = list(self.bins)
+        ret.pop(self._camera_bin)
+        return ret
 
     async def open(self):
         # self._camera = cv2.VideoCapture(0)
