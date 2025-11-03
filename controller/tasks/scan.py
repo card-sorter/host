@@ -18,16 +18,17 @@ class Scan(TaskController):
             if img:
                 barcode = self.scan_barcode(img)
                 if barcode:
-                    pass
+                    b.barcode = barcode
         # if top card is barcode, load from db
-        # if top card isn't a barcode, then set bin as empty
+        # if top card isn't in barcode table, then set bin as unscanned
         # set source bin to unscanned bin
-        # while source bin not barcode (empty)
+        # while source bin not barcode in table(empty)
             # scan card from source bin and move to empty bin
             # crop and dewarp the image
             # save image to file
             # scan_barcode
             # create card object and put it into bin
+            # update database with card info, bin info, and path to file
             # create scan_image task, pass card object
 
         #done

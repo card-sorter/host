@@ -21,6 +21,7 @@ class HAL:
         self._homed = False
         self._card_drop_offset = config.CARD_DROP_OFFSET
         self._card_lift_delay = config.CARD_LIFT_DELAY
+        self.bin_max_len = 0
 
     @property
     def bins(self):
@@ -128,7 +129,7 @@ async def main():
     print("connected")
     bins = hal.bins
     binlist = [1, 3]
-    await hal.move_card(bins[1], bins[3])
+    await hal.move_card(bins[1], bins[4])
     start = time.time()
     count = 50
     for i in range(count):

@@ -60,7 +60,6 @@ class Card:
     def __init__(self) -> None:
         pass
 
-
 class Bin(list[Card]):
     def __init__(self, x:float, y:float, z:float) -> None:
         super().__init__()
@@ -72,7 +71,7 @@ class Bin(list[Card]):
 
     @property
     def empty(self):
-        return len(self) == 0
+        return self.scanned and len(self) == 0
 
     @property
     def x(self):

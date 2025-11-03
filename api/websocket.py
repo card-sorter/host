@@ -42,7 +42,10 @@ async def broadcaster():
 
 async def run_and_wait():
     app = tornado.web.Application([
-        (r"/socket", WebSocket)
+        (r"/socket", WebSocket),
+        (r"/images/(.*)", tornado.web.StaticFileHandler, {
+            "path": "images"
+        })
     ])
     _ = app.listen(port)
 

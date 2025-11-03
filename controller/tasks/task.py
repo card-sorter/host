@@ -17,6 +17,8 @@ class TaskContext:
 class TaskController:
     def __init__(self, ctx: TaskContext):
         self.ctx = ctx
+        self.name:str = ""
+        self.description:str = ""
 
     async def run(self):
         pass
