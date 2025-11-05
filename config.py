@@ -15,3 +15,4 @@ CARD_LIFT_DELAY = 1
 DATABASE = {
     "path": "sorter.db"
 }
+CAMERA_BIN = 0

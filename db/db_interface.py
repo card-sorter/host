@@ -42,35 +42,35 @@ class DBInterface:
         return bool(await self.db.commit())
 
     async def _setup(self):
-        cur = await self._execute(
-            "SELECT name FROM sqlite_master WHERE name = 'Bins'"
+        query = '''
+        CREATE TABLE NOT EXISTS Bins (
+            BinID INTEGER NOT NULL,
+            PRIMARY KEY (BinID)
+        );'''
+        await self._execute(query)
+        query = '''
+        CREATE TABLE IF NOT EXISTS Cards (
+            CardID INTEGER NOT NULL,
+            BinID INTEGER NOT NULL,
+            Position INTEGER NOT NULL,
+            Data TEXT,
+            PRIMARY KEY (CardID),
+            FOREIGN KEY (BinID) REFERENCES Bins(BinID)
+        );'''
+        await self._execute(query)
+        query = '''
+        CREATE TABLE IF NOT EXISTS Barcodes (
+            Barcode VARCHAR NOT NULL,
+            BinID INTEGER,
+            PRIMARY KEY (Barcode)
+            FOREIGN KEY (BinID) REFERENCES Bins(BinID)
         )
-        if cur and await cur.fetchone() is None:
-            query = '''
-            CREATE TABLE Bins (
-                BinID INTEGER NOT NULL,
-                Barcode VARCHAR(20) NOT NULL,
-                PRIMARY KEY (BinID)
-            );'''
-            await cur.execute(query)
-        cur = await self._execute(
-            "SELECT name FROM sqlite_master WHERE name = 'Cards'"
-        )
-        if cur and await cur.fetchone() is None:
-            query = '''
-            CREATE TABLE Cards (
-                CardID INTEGER NOT NULL,
-                BinID INTEGER NOT NULL,
-                Position INTEGER NOT NULL,
-                Data TEXT,
-                PRIMARY KEY (CardID),
-                FOREIGN KEY (BinID) REFERENCES Bins(BinID)
-            );'''
-            await cur.execute(query)
+        '''
+        await self._execute(query)
 
     async def check_barcode(self, barcode: str):
         cur = await self._execute(
-            f"SELECT BinID FROM Bins WHERE Barcode ='{barcode}'"
+            f"SELECT Barcode, BinID FROM Barcodes WHERE Barcode ='{barcode}'"
         )
         if cur:
             ret = await cur.fetchone()
@@ -79,7 +79,7 @@ class DBInterface:
         return None
 
     async def add_barcode(self, barcode: str):
-        query = f"INSERT INTO Bins (Barcode) VALUES ('{barcode}');"
+        query = f"INSERT INTO Barcodes (Barcode) VALUES ('{barcode}');"
         await self._execute(query)
         await self._commit()
 
