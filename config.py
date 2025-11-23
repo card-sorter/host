@@ -1,3 +1,6 @@
+from pyprojroot import here
+import os
+
 RPC_HOST = "localhost"
 RPC_PORT = 8080
 BAUD_RATE = 115200
@@ -12,7 +15,25 @@ PROBE_SAFETY_DISTANCE = 4
 PROBE_FEEDRATE = 500
 CARD_DROP_OFFSET = 15
 CARD_LIFT_DELAY = 1
+PROJ_ROOT = here()
 DATABASE = {
-    "path": "sorter.db"
+    "path": os.path.join(PROJ_ROOT, "db/database.db"),
 }
 CAMERA_BIN = 0
+TASKS = [
+    {
+        "name":"Scan Cards",
+        "module":"scan",
+        "description":"Scan cards and add to database"
+    },
+    {
+        "name":"Scan Barcodes",
+        "module":"scan_barcodes",
+        "description":"Scan barcodes and add to database"
+    },
+    {
+        "name":"Sort Cards",
+        "module":"sort",
+        "description":"Sort already scanned cards"
+    }
+]

@@ -4,7 +4,7 @@ from typing import final
 import cv2
 import numpy as np
 import config
-from cnc_serial import SerialController
+from hardware.cnc_serial import SerialController
 from common import Bin
 
 
