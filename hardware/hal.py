@@ -161,9 +161,6 @@ async def main():
     print(await hal.open())
     print("connected")
     bins = hal.bins
-    await hal.scan_card(bins[1], bins[2])
-    await hal.close()
-    """
     binlist = [2, 3]
     await hal.move_card(bins[2], bins[3])
     start = time.time()
@@ -173,7 +170,7 @@ async def main():
     await hal.close()
     end = time.time()
     print("average time per move:")
-    print((end-start)/count) """
+    print((end-start)/count)
 
 if __name__ == "__main__":
     asyncio.run(main())
