@@ -1,11 +1,17 @@
 import asyncio
-from typing import override
+try:
+    from typing import override
+except ImportError:
+    def override(func):
+        return func
 import tornado.websocket
-from queue_manager import command_queue, event_queue
-from common import *
+from host.queue_manager import command_queue, event_queue
+from host. common import *
+from host.controller.controller import Controller
 
 port = 8888
 connections: set["WebSocket"] = set()
+
 
 class WebSocket(tornado.websocket.WebSocketHandler):
 
@@ -27,10 +33,11 @@ class WebSocket(tornado.websocket.WebSocketHandler):
         connections.discard(self)
         return super().on_close()
 
+
 async def broadcaster():
     while True:
         message = await event_queue.get()
-        dead_connections:list[WebSocket] = []
+        dead_connections: list[WebSocket] = []
         for con in connections:
             try:
                 await con.write_message(message.to_json)
