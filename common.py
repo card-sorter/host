@@ -1,5 +1,5 @@
 import json
-from typing import final
+from typing import final, Self
 
 
 class Event:
@@ -70,7 +70,7 @@ class Bin(list[Card]):
         self.barcode:str = ""
         self.id:str = ""
 
-    def copy_list(self, l) -> Bin:
+    def copy_list(self, l) -> Self:
         pass
 
     @property
