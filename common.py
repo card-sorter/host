@@ -3,9 +3,9 @@ from typing import final
 
 
 class Event:
-    def __init__(self):
+    def __init__(self, value:str = ""):
         self._type:str = "event"
-        self._value:str|None = None
+        self._value:str = value
 
     @property
     def to_string(self):
@@ -68,6 +68,10 @@ class Bin(list[Card]):
         self._z:float = z
         self.scanned:bool = False
         self.barcode:str = ""
+        self.id:str = ""
+
+    def copy_list(self, l) -> Bin:
+        pass
 
     @property
     def empty(self):

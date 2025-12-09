@@ -39,6 +39,7 @@ class HAL:
     async def open(self):
         result = await self._serialController.open()
         if result.find("Connected") > -1:
+            await self._send_command("G92 X0 Z0")
             self._connected = True
             return True
         return False

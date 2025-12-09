@@ -43,3 +43,4 @@ class ScanBarcodes(TaskController):
                         else:
                             target = b
                             break
+

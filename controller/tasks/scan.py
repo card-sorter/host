@@ -11,16 +11,31 @@ class Scan(TaskController):
         text, _, _ = self.qr.detectAndDecode(image)
         return text
 
+    async def scan_api(self, image: np.ndarray):
+        pass
+
     async def run(self):
         # scan top card of every bin, find an empty one
-        for b in self.ctx.bins:
+        target = None
+        for b in self.ctx.default_bins:
             img = await self.ctx.hal.scan_card(b, b)
             if img:
                 barcode = self.scan_barcode(img)
                 if barcode:
+                    # load bin from db
                     b.barcode = barcode
-        # if top card is barcode, load from db
-        # if top card isn't in barcode table, then set bin as unscanned
+                    b.id = await self.ctx.database.check_barcode(barcode)
+                    if b.id:
+                        b.clear()
+                        b.extend(await self.ctx.database.load_bin(b.id))
+                        b.scanned = True
+                        if b.empty:
+                            target = b
+
+        for b in self.ctx.default_bins:
+            if not b.empty:
+
+
         # set source bin to unscanned bin
         # while source bin not barcode in table(empty)
             # scan card from source bin and move to empty bin

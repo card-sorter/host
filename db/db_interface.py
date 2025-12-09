@@ -30,10 +30,10 @@ class DBInterface:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
-    async def _execute(self, statement: str) -> aiosqlite.Cursor | None:
+    async def _execute(self, statement: str, parameters: tuple = ()) -> aiosqlite.Cursor | None:
         if self.db is None:
             return None
-        cursor = await self.db.execute(statement)
+        cursor = await self.db.execute(statement, parameters)
         return cursor
 
     async def _commit(self) -> bool | None:
@@ -43,7 +43,7 @@ class DBInterface:
 
     async def _setup(self):
         query = '''
-        CREATE TABLE NOT EXISTS Bins (
+        CREATE TABLE IF NOT EXISTS Bins (
             BinID INTEGER NOT NULL,
             PRIMARY KEY (BinID)
         );'''
@@ -62,7 +62,7 @@ class DBInterface:
         CREATE TABLE IF NOT EXISTS Barcodes (
             Barcode VARCHAR NOT NULL,
             BinID INTEGER,
-            PRIMARY KEY (Barcode)
+            PRIMARY KEY (Barcode),
             FOREIGN KEY (BinID) REFERENCES Bins(BinID)
         )
         '''
@@ -70,7 +70,8 @@ class DBInterface:
 
     async def check_barcode(self, barcode: str):
         cur = await self._execute(
-            f"SELECT Barcode, BinID FROM Barcodes WHERE Barcode ='{barcode}'"
+            "SELECT BinID FROM Barcodes WHERE Barcode = ?",
+            (barcode,)
         )
         if cur:
             ret = await cur.fetchone()
@@ -78,9 +79,21 @@ class DBInterface:
                 return ret[0]
         return None
 
+    async def load_bin(self, binID:str):
+        cur = await self._execute(
+            "SELECT * FROM Cards WHERE BinID = ? ORDER BY Position",
+            (binID,)
+        )
+        if cur:
+            ret = await cur.fetchall()
+            return ret
+        return None
+
     async def add_barcode(self, barcode: str):
-        query = f"INSERT INTO Barcodes (Barcode) VALUES ('{barcode}');"
-        await self._execute(query)
+        await self._execute(
+            "INSERT INTO Barcodes (Barcode) VALUES (?)",
+            (barcode,)
+        )
         await self._commit()
 
 
