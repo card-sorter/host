@@ -43,3 +43,8 @@ class Controller:
         while True:
             cmd_event = await command_queue.get()
             await self.on_command(cmd_event)
+
+async def run_forever():
+    controller = Controller()
+    asyncio.create_task(controller.run())
+    await asyncio.Event().wait()
