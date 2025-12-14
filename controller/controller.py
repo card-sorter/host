@@ -21,6 +21,7 @@ class Controller:
 
 
     async def on_state_change(self, message: str | None = None):
+        print(States(self.state).name)
         event_queue.put_nowait(StateEvent(States(self.state).name, message))
 
 
@@ -43,3 +44,8 @@ class Controller:
         while True:
             cmd_event = await command_queue.get()
             await self.on_command(cmd_event)
+
+async def run_forever():
+    controller = Controller()
+    asyncio.create_task(controller.run())
+    await asyncio.Event().wait()
