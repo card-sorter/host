@@ -127,8 +127,9 @@ class StateEvent(Event):
 
 
 class Card:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, image, data) -> None:
+        self.image = image
+        self.data = data
 
 class Bin(list[Card]):
     def __init__(self, x:float, y:float, z:float) -> None:
@@ -140,8 +141,6 @@ class Bin(list[Card]):
         self.barcode:str = ""
         self.id:str = ""
 
-    def copy_list(self, l) -> Self:
-        pass
 
     @property
     def empty(self):

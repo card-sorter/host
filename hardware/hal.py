@@ -63,6 +63,7 @@ class HAL:
         await self._serialController.close()
         if self._camera:
             self._camera.stop()
+            self._camera.close()
         self._connected = False
 
     async def _check_disconnection(self) -> bool:
@@ -152,6 +153,7 @@ class HAL:
             frame = self._camera.capture_array()
             cv2.imwrite("before.jpg", frame)
             frame = self.projector.project(frame)
+            #frame = self.projector.crop(frame)
             if not await self._move_to_height(self._height): return False
             if not await self._move_to_bin(target): return False
             if not await self._drop_card(target): return False

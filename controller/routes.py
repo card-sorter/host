@@ -1,7 +1,9 @@
+import asyncio
 from common import States
 
 
 async def start(controller, command):
+    controller.current_task = asyncio.create_task(controller.start_task())
     await controller.set_state(States.RUNNING)
 
 

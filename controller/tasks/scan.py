@@ -34,6 +34,7 @@ class Scan(TaskController):
 
         for b in self.ctx.default_bins:
             if not b.empty:
+                pass
 
 
         # set source bin to unscanned bin

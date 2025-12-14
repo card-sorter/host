@@ -31,6 +31,11 @@ CAMERA_BIN = 0
 WARP_INFO = ((4608//2,2592//2), 90, 1.25)
 TASKS = [
     {
+        "name":"Scan Single Card",
+        "module":"scan_and_print",
+        "description":"Scan a card and print the info"
+    },
+    {
         "name":"Scan Cards",
         "module":"scan",
         "description":"Scan cards and add to database"
@@ -46,4 +51,4 @@ TASKS = [
         "description":"Sort already scanned cards"
     }
 ]
-DEFAULT_TASK = 1
+DEFAULT_TASK = 0

@@ -1,6 +1,7 @@
 import asyncio
-
+from pathlib import Path
 import aiosqlite
+from common import Card
 from config import DATABASE
 
 
@@ -67,6 +68,7 @@ class DBInterface:
         )
         '''
         await self._execute(query)
+        Path("images").mkdir(exist_ok=True)
 
     async def check_barcode(self, barcode: str):
         cur = await self._execute(
@@ -95,6 +97,9 @@ class DBInterface:
             (barcode,)
         )
         await self._commit()
+    
+    async def add_card(self, card: Card):
+        pass
 
 
 async def main():

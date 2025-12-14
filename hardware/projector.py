@@ -7,6 +7,12 @@ class Projector():
         self.center = center
         self.angle = angle_degrees
         self.curvature = curvature
+        self.crop_points = {
+            'l': 1660,
+            'r': 1530,
+            't': 300,
+            'b': 350
+        }
 
     # This method is flawed but it works for the implementation so I don't want to touch it
     def project(self, image):
@@ -35,3 +41,9 @@ class Projector():
         projected = cv2.remap(image, map_x, map_y, cv2.INTER_LINEAR)
 
         return projected
+    
+    def crop(self, image):
+        height, width = image.shape[:2]
+        pts = self.crop_points
+        cropped = image[pts['t']:height-pts['b'], pts['l']:width-pts['r']]
+        return cropped
