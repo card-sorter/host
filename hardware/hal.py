@@ -6,6 +6,8 @@ import numpy as np
 import config
 from hardware.cnc_serial import SerialController
 from common import Bin
+from hardware.projector import Projector
+from picamera2 import Picamera2
 
 
 @final
@@ -21,10 +23,12 @@ class HAL:
         self._probe_safety_distance = config.PROBE_SAFETY_DISTANCE
         self._probe_feedrate = config.PROBE_FEEDRATE
         self._camera = None
+        self._focused = True
         self._homed = False
         self._card_drop_offset = config.CARD_DROP_OFFSET
         self._card_lift_delay = config.CARD_LIFT_DELAY
         self.bin_max_len = 0
+        self.projector = Projector(*config.WARP_INFO)
 
     @property
     def bins(self):
@@ -45,15 +49,12 @@ class HAL:
         return False
 
     def open_camera(self):
-        self._camera = cv2.VideoCapture(0)
-        if not self._camera.isOpened():
-            return "Webcam not connected"
-        else:
-            ret, frame = self._camera.read()
-            if ret:
-                "pic taken"
-                cv2.imwrite("captured_image.png", frame)
-            return "Camera Opened"
+        self._camera = Picamera2()
+        cam_config = self._camera.create_still_configuration({'format': 'RGB888'})
+        self._camera.configure(cam_config)
+        self._camera.start()
+        self._camera.set_controls(config.CAMERA_CONFIG)
+
 
     async def close(self):
         await self._set_vacuum(False, True)
@@ -61,7 +62,7 @@ class HAL:
         await self._set_vacuum(False, False)
         await self._serialController.close()
         if self._camera:
-            self._camera.release()
+            self._camera.stop()
         self._connected = False
 
     async def _check_disconnection(self) -> bool:
@@ -146,13 +147,16 @@ class HAL:
             if not await self._move_to_bin(self.bins[self._camera_bin]): return False
             if not await self._move_to_height(self._camera_height): return False
             if not await self._send_command("G04 P0.5"): return False
-            ret, frame = self._camera.read()
-            if ret:
-                print("pic taken")
-                cv2.imwrite("a.jpg", frame)
+            if not self._focused:
+                self._camera.autofocus_cycle()
+            frame = self._camera.capture_array()
+            cv2.imwrite("before.jpg", frame)
+            frame = self.projector.project(frame)
             if not await self._move_to_height(self._height): return False
             if not await self._move_to_bin(target): return False
             if not await self._drop_card(target): return False
+            if frame is not None:
+                return frame
         return False
 
 
@@ -162,16 +166,19 @@ async def main():
     print(await hal.open())
     print("connected")
     bins = hal.bins
-    binlist = [2, 3]
-    await hal.move_card(bins[2], bins[3])
-    start = time.time()
-    count = 50
-    for i in range(count):
-        print(await hal.move_card(bins[1], bins[binlist[i%2]]))
+    frame = await hal.scan_card(bins[2],bins[2])
+    if frame is not False:
+        cv2.imwrite("after.jpg", frame)
+    #binlist = [2, 3]
+    #await hal.move_card(bins[2], bins[3])
+    #start = time.time()
+    #count = 50
+    #for i in range(count):
+        #print(await hal.move_card(bins[1], bins[binlist[i%2]]))
     await hal.close()
-    end = time.time()
-    print("average time per move:")
-    print((end-start)/count)
+    #end = time.time()
+    #print("average time per move:")
+    #print((end-start)/count)
 
 if __name__ == "__main__":
     asyncio.run(main())

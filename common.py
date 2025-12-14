@@ -1,6 +1,15 @@
 import json
 from typing import final, Self
+from enum import Enum
 
+class States(Enum):
+    IDLE = 0
+    RUNNING = 1
+    PAUSED = 2
+    STOPPED = 3
+    FINISHED = 4
+    E_STOP = 5
+    RESET = 6
 
 class Event:
     def __init__(self, value:str = ""):
@@ -54,6 +63,67 @@ class WarningEvent(Event):
         super().__init__()
         self._type = "warning"
         self._value = value
+
+
+@final
+
+
+class StatusEvent(Event):
+
+    def __init__(self, state: str, progress: float | int = 0, job_id=None, message: str | None = None):
+        super().__init__()
+        self._type = "status"
+        self._state = state
+        self._progress = max(0, min(100, progress))
+        self._job_id = job_id
+        self._value = message or state
+
+    @property
+    def to_json(self):
+        obj = {
+            "type": self._type,
+            "state": self._state,
+            "progress": self._progress,
+            "job_id": self._job_id,
+        }
+        if self._value is not None:
+            obj["message"] = self._value
+        return json.dumps(obj)
+
+    @property
+    def state(self):
+        return self._state
+
+    @property
+    def progress(self):
+        return self._progress
+
+    @property
+    def job_id(self):
+        return self._job_id
+
+
+@final
+class StateEvent(Event):
+
+    def __init__(self, state: str, message: str | None = None):
+        super().__init__()
+        self._type = "state"
+        self._state = state
+        self._value = message or state
+
+    @property
+    def to_json(self):
+        obj = {
+            "type": self._type,
+            "state": self._state,
+            "message": self._value
+        }
+        return json.dumps(obj)
+
+    @property
+    def state(self):
+        return self._state
 
 
 class Card:

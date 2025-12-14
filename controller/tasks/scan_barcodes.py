@@ -25,7 +25,7 @@ class ScanBarcodes(TaskController):
         bins = self.ctx.default_bins
         for b in bins:
             img = await self.ctx.hal.scan_card(b, b)
-            if img:
+            if img is not False:
                 if not self.scan_barcode(img):
                     b.scanned = True
                     target = b
