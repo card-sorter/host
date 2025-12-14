@@ -21,6 +21,7 @@ class Controller:
 
 
     async def on_state_change(self, message: str | None = None):
+        print(States(self.state).name)
         event_queue.put_nowait(StateEvent(States(self.state).name, message))
 
 
