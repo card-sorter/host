@@ -1,5 +1,6 @@
 from pyprojroot import here
 import os
+from libcamera import controls
 
 RPC_HOST = "localhost"
 RPC_PORT = 8080
@@ -11,7 +12,13 @@ BIN_HEIGHT = -30
 BIN_BOTTOM_LIMIT = -105
 MOVEMENT_HEIGHT = 0
 CAMERA_HEIGHT = -25
-FOCUS_LENGTH = 0.052
+CAMERA_CONFIG = {
+    #'ExposureTime': 66645, 
+    #'AnalogueGain': 7.757575988769531, 
+    #'ColourGains': (1.4118220806121826, 3.3094003200531006)
+    "AfMode": controls.AfModeEnum.Manual, 
+    "LensPosition": 1/0.052,
+    }
 PROBE_SAFETY_DISTANCE = 4
 PROBE_FEEDRATE = 500
 CARD_DROP_OFFSET = 15
@@ -21,7 +28,7 @@ DATABASE = {
     "path": os.path.join(PROJ_ROOT, "db/database.db"),
 }
 CAMERA_BIN = 0
-CAMERA_INFO = (0, 90, 200)
+WARP_INFO = ((4608//2,2592//2), 90, 1.25)
 TASKS = [
     {
         "name":"Scan Cards",

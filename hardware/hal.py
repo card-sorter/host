@@ -8,7 +8,6 @@ from hardware.cnc_serial import SerialController
 from common import Bin
 from hardware.projector import Projector
 from picamera2 import Picamera2
-from libcamera import controls
 
 
 @final
@@ -29,7 +28,7 @@ class HAL:
         self._card_drop_offset = config.CARD_DROP_OFFSET
         self._card_lift_delay = config.CARD_LIFT_DELAY
         self.bin_max_len = 0
-        self.projector = Projector(*config.CAMERA_INFO)
+        self.projector = Projector(*config.WARP_INFO)
 
     @property
     def bins(self):
@@ -51,10 +50,10 @@ class HAL:
 
     def open_camera(self):
         self._camera = Picamera2()
-        cam_config = self._camera.create_still_configuration()
+        cam_config = self._camera.create_still_configuration({'format': 'RGB888'})
         self._camera.configure(cam_config)
         self._camera.start()
-        self._camera.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": 1/config.FOCUS_LENGTH})
+        self._camera.set_controls(config.CAMERA_CONFIG)
 
 
     async def close(self):
@@ -151,6 +150,8 @@ class HAL:
             if not self._focused:
                 self._camera.autofocus_cycle()
             frame = self._camera.capture_array()
+            cv2.imwrite("before.jpg", frame)
+            frame = self.projector.project(frame)
             if not await self._move_to_height(self._height): return False
             if not await self._move_to_bin(target): return False
             if not await self._drop_card(target): return False
@@ -165,9 +166,9 @@ async def main():
     print(await hal.open())
     print("connected")
     bins = hal.bins
-    frame = await hal.scan_card(bins[1],bins[1])
-    if frame is not None:
-        cv2.imwrite("a.jpg", frame)
+    frame = await hal.scan_card(bins[2],bins[2])
+    if frame is not False:
+        cv2.imwrite("after.jpg", frame)
     #binlist = [2, 3]
     #await hal.move_card(bins[2], bins[3])
     #start = time.time()

@@ -1,16 +1,16 @@
 import asyncio
-
 from queue_manager import command_queue, event_queue
+from common import StateEvent, ErrorEvent, States
+from controller.routes import ROUTES
+from config import TASKS
 from importlib import import_module
-from config import *
-from common import *
-import os
 
 
 class Controller:
     def __init__(self):
-        self._state = ""
+        self.state = States.IDLE
         self._tasks = []
+        self._current = None
 
 
     def _load_tasks(self):
@@ -19,11 +19,27 @@ class Controller:
             path = "controller.tasks." + task["module"]
             self._modules.append(import_module(path))
 
-    async def loop(self):
+
+    async def on_state_change(self, message: str | None = None):
+        event_queue.put_nowait(StateEvent(States(self.state).name, message))
+
+
+    async def set_state(self, new_state: str, message: str | None = None):
+        if self.state != new_state:
+            self.state = new_state
+            await self.on_state_change(message)
+            return True
+        return False
+
+    async def on_command(self, command):
+        handler = ROUTES.get((command.value or "").strip().lower())
+        if handler:
+            await handler(self, command)
+        else:
+            event_queue.put_nowait(ErrorEvent(f"route {command.value} not found"))
+
+    async def run(self):
+        await self.on_state_change("Host ready")
         while True:
-            command = await command_queue.get()
-
-
-if __name__ == "__main__":
-    controller = Controller()
-    controller._load_tasks()
+            cmd_event = await command_queue.get()
+            await self.on_command(cmd_event)
