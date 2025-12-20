@@ -69,7 +69,7 @@ class SerialController:
         self._serial.reset_input_buffer()
         self._rbuf = b""
 
-    async def send_command(self, command: str, delimiter: str="\n", timeout: float=20.0)->str:
+    async def send_command(self, command: str, delimiter: str="\n", timeout: float=30.0)->str:
         """
         Send a command to GRBL.
         Will return a string including the delimiter upon command completion.

@@ -43,7 +43,6 @@ class HAL:
     async def open(self):
         result = await self._serialController.open()
         if result.find("Connected") > -1:
-            await self._send_command("G92 X0 Z0")
             self._connected = True
             return True
         return False
@@ -65,6 +64,7 @@ class HAL:
             self._camera.stop()
             self._camera.close()
         self._connected = False
+        self._homed = False
 
     async def _check_disconnection(self) -> bool:
         # TODO: handle random disconnects
@@ -74,6 +74,7 @@ class HAL:
         if not self._homed:
             status = await self._serialController.home()
             self._homed = status == "ok"
+            await self._send_command("G92 X0 Z0")
             if not self._homed: return False
             await self._set_vacuum(True, False)
         ret = await self._serialController.send_command(command, timeout=timeout, delimiter=delim)
@@ -151,8 +152,8 @@ class HAL:
             if not self._focused:
                 self._camera.autofocus_cycle()
             frame = self._camera.capture_array()
-            cv2.imwrite("before.jpg", frame)
             frame = self.projector.project(frame)
+            frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
             #frame = self.projector.crop(frame)
             if not await self._move_to_height(self._height): return False
             if not await self._move_to_bin(target): return False

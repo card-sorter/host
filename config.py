@@ -51,4 +51,4 @@ TASKS = [
         "description":"Sort already scanned cards"
     }
 ]
-DEFAULT_TASK = 0
+DEFAULT_TASK = 3

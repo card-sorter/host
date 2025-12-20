@@ -78,8 +78,16 @@ class DBInterface:
         if cur:
             ret = await cur.fetchone()
             if ret:
+                print(ret)
                 return ret[0]
         return None
+    
+    async def get_barcodes(self):
+        cur = await self._execute(
+            "SELECT * FROM BARCODES"
+        )
+        if cur:
+            return await cur.fetchall()
 
     async def load_bin(self, binID:str):
         cur = await self._execute(
@@ -104,7 +112,9 @@ class DBInterface:
 
 async def main():
     async with DBInterface() as db:
-        print(await db.check_barcode("abc"))
+        await db.add_barcode("labubu")
+        print(await db.get_barcodes())
+        print(await db.check_barcode("4PV-HPHN-JWJ-BR4"))
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -34,11 +34,13 @@ class Controller:
         print(f"Starting {TASKS[tasknum]["name"]}")
         await self._hal.open()
         self._hal.open_camera()
+        await self._db.open()
         ctx = TaskContext(self._hal, event_queue, self._db)
         task = self._tasks[tasknum](ctx)
         try: 
             await task.run()
-        except:
+        except Exception as e:
+            print(e)
             await self.set_state(new_state = States.FINISHED)
         await self._hal.close()
 
