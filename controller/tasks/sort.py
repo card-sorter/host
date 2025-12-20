@@ -210,7 +210,8 @@ class Sort(TaskController):
         print(len(moves))
         for move in moves:
             print(move)
-
+            print(bins[move[0]])
+            print(bins[move[1]])
             await self.ctx.hal.move_card(bins[move[0]], bins[move[1]])
         print(self.ctx.default_bins)
         await asyncio.sleep(0)

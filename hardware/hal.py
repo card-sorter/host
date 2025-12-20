@@ -119,7 +119,7 @@ class HAL:
         return bool(await self._send_command(command))
 
     async def _lift_card(self, bin: Bin) -> bool:
-        if not await self._probe_height(bin): return False
+        if not await self._probe_height(bin): raise Exception("Probing Failed")
         if not await self._set_vacuum(True, False): return False
         if not await self._send_command(f"G01 Z{bin.z + 5} F500"): return False
         if not await self._send_command(f"G01 Z{bin.z + self._card_drop_offset} F2000"): return False

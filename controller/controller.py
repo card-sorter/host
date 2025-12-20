@@ -43,6 +43,8 @@ class Controller:
             print(e)
             await self.set_state(new_state = States.FINISHED)
         await self._hal.close()
+        await self._db.close()
+        await self.set_state(new_state = States.FINISHED)
 
 
     async def on_state_change(self, message: str | None = None):
