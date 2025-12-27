@@ -1,0 +1,15 @@
+[Unit]
+Description=Card Sorting Robot Host
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=PROJECT_DIR
+ExecStart=PROJECT_DIR/venv/bin/python PROJECT_DIR/main.py
+Restart=on-failure
+RestartSec=10
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
