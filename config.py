@@ -7,7 +7,7 @@ RPC_PORT = 8080
 BAUD_RATE = 115200
 SERIAL_PORT = "/dev/ttyACM0"
 GRBL_CONNECTION = b"Grbl 1.1h ['$' for help]\r\n"
-BIN_POSITIONS = [(12, 0), (90, 0), (165, 0), (242, 0), (318, 0)]
+BIN_POSITIONS = [(14, 0), (91, 0), (167, 0), (244, 0), (320, 0)]
 BIN_HEIGHT = -30
 BIN_BOTTOM_LIMIT = -105
 MOVEMENT_HEIGHT = 0
@@ -19,7 +19,7 @@ CAMERA_CONFIG = {
     "AfMode": controls.AfModeEnum.Manual, 
     "LensPosition": 1/0.052,
     }
-PROBE_SAFETY_DISTANCE = 4
+PROBE_SAFETY_DISTANCE = 5
 PROBE_FEEDRATE = 500
 CARD_DROP_OFFSET = 15
 CARD_LIFT_DELAY = 1

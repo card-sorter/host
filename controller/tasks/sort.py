@@ -99,7 +99,7 @@ class GreedyDigSort:
         Finds the target stack for the sort operation.
         """
         # Find smallest stack that's not sorted
-        smallest_stack = min([s for s in self.stacks if not s.sorted], key=lambda s: len(s))
+        smallest_stack = min([s for s in reversed(self.stacks) if not s.sorted], key=lambda s: len(s))
         # Empty it
         while not smallest_stack.empty:
             self.move(smallest_stack, self.find_dig_target(smallest_stack))
@@ -145,7 +145,7 @@ class Sort(TaskController):
                         filename='image.jpg',
                         content_type='image/jpeg')
             async with aiohttp.ClientSession() as session:
-                async with session.post("http://192.168.168.27:8000/scan", data=data) as response:
+                async with session.post("http://localhost:8000/scan", data=data) as response:
                     if response.status == 200:
                         result = await response.json()
                         return result
@@ -157,10 +157,13 @@ class Sort(TaskController):
     async def run(self):
         # scan top card of every bin, find an empty one
         bins = self.ctx.bins
+        # stack of len -1 because they will never be full
         stacks = [Stack(-1, str(b.x)) for b in self.ctx.bins]
         all = []
         target = None
         source_bins = []
+        # 1 : len(bins) + 1 because bin 0 is the camera bin so it doesn't have any cards
+        # default bins is bins without the camera bin
         for b in range(1, len(self.ctx.default_bins)+1):
             img = await self.ctx.hal.scan_card(bins[b], bins[b])
             if img is not False:
@@ -181,13 +184,17 @@ class Sort(TaskController):
                     source_bins.append(b)
         print("part 2")
         print(source_bins)
+        if not target:
+            return
         for b in source_bins:
             while True:
                 img = await self.ctx.hal.scan_card(bins[b], bins[target])
                 if img is not False:
                     barcode = self.scan_barcode(img)
                     if barcode:
-                        await self.ctx.hal.move_card(bins[target], bins[b])
+                        # move barcode back to the bin it came from
+                        # the barcode means that it's at the bottom of the bin, so we move on
+                        print(await self.ctx.hal.move_card(bins[target], bins[b]))
                         bins[target].scanned = True
                         target = b
                         break
@@ -196,24 +203,16 @@ class Sort(TaskController):
                     card = await self.scan_api(image_bytes)
                     cardObj = CardObj(card[0]['details']['product_id'])
                     stacks[target].push(cardObj)
-                    print(target)
                     all.append(cardObj.value)
                     bins[target].append(card[0]['details']['name'])
         print(self.ctx.default_bins)
         all.sort()
-        print(stacks)
-        stacks.reverse()
-        print(all)
         sorter = GreedyDigSort(stacks, all)
         moves = sorter.sort()
-        bins.reverse()
         print(len(moves))
         for move in moves:
             print(move)
-            print(bins[move[0]])
-            print(bins[move[1]])
-            await self.ctx.hal.move_card(bins[move[0]], bins[move[1]])
+            print(await self.ctx.hal.move_card(bins[move[0]], bins[move[1]]))
         print(self.ctx.default_bins)
-        await asyncio.sleep(0)
 
 __all__ = ['Sort']

@@ -1,9 +1,9 @@
-import db.db_interface
+import hardware.hal
 import asyncio
 
             
 async def run():
-    await db.db_interface.main()
+    await hardware.hal.main()
 
 if __name__ == "__main__":
     asyncio.run(run())
