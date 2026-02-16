@@ -6,17 +6,19 @@ from common import *
 
 
 class SerialController:
-    def __init__(self, port: str=config.SERIAL_PORT, baud_rate: int=config.BAUD_RATE):
+    def __init__(self, port: str=config.SERIAL_PORT, baud_rate: int=config.BAUD_RATE, debug = False):
         self.port = port
         self._baud_rate = baud_rate
         self._serial = None
-        self._loop = asyncio.get_running_loop()
+        self._loop = None  # Initialize as None
         self._rbuf = b''
         self._rbytes = 0
         self._wbuf = b''
         self._rfuture = None
         self._delimiter = None
         self._WCO = None
+        self._command_lock = None  # Initialize as None, create in open()
+        self.debug = debug
 
     async def __aenter__(self):
         await self.open()
@@ -37,7 +39,6 @@ class SerialController:
                     self._rfuture.set_result("disconnected unexpectedly")
                 self._serial.close()
                 self._serial = None
-
 
     def _check_pending_read(self):
         future = self._rfuture
@@ -76,20 +77,32 @@ class SerialController:
         Upon timeout, will return 'Timeout' and close the connection.
         If not connected, will return None.
         """
-        if self._serial is not None:
+        if self._serial is None:
+            event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
+            return "Not Connected"
+        
+        # Acquire the lock to ensure commands are serialized
+        async with self._command_lock:
+            # Wait for any pending read to complete
             while self._delimiter:
                 await self._rfuture
 
             self._clear_buffer()
             self._rfuture = self._loop.create_future()
             self._delimiter = delimiter.encode("utf-8")
+            
             if command.find("\n") == -1:
                 command = command + "\n"
             command = command.encode("utf-8")
+            
             await self._write(command)
+            
             try:
                 ret = await asyncio.wait_for(self._rfuture, timeout)
-                return ret.decode("utf-8")
+                decoded = ret.decode("utf-8")
+                if self.debug:
+                    print(f"Command: {command.strip()}, Result: {repr(decoded)}")  # Debug
+                return decoded
             except asyncio.TimeoutError:
                 event_queue.put_nowait(ErrorEvent(f"Timeout on {self.port} when running {command}"))
                 self._loop.remove_writer(self._serial.fd)
@@ -97,8 +110,6 @@ class SerialController:
                 self._rfuture = None
                 self._rbuf = b""
                 return "Timeout"
-        event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
-        return "Not Connected"
 
     async def get_position(self)->dict|bool:
         pos = await self.send_command("?")
@@ -127,8 +138,6 @@ class SerialController:
 
         return ret
 
-
-
     async def open(self)->str:
         """
         Open the connection to GRBL.
@@ -139,6 +148,10 @@ class SerialController:
         "Error when connecting to {self.port}: {e}"
         """
         try:
+            # Get the running event loop and create the lock
+            self._loop = asyncio.get_running_loop()
+            self._command_lock = asyncio.Lock()
+            
             self._rfuture = self._loop.create_future()
             self._delimiter = config.GRBL_CONNECTION
             self._serial = serial.Serial(self.port, self._baud_rate)
@@ -154,11 +167,6 @@ class SerialController:
             event_queue.put_nowait(ErrorEvent(f"Timeout when connecting to {self.port}"))
             await self.close()
             return f"Connection timeout to {self.port}"
-
-        except serial.serialutil.SerialException as e:
-            event_queue.put_nowait(ErrorEvent(f"Serial error when connecting to {self.port}: {e}"))
-            await self.close()
-            return f"Serial error when connecting to {self.port}: {e}"
 
         except Exception as e:
             event_queue.put_nowait(ErrorEvent(f"Error when connecting to {self.port}: {e}"))

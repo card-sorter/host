@@ -1,12 +1,14 @@
 import asyncio
-from controller.tasks.task import TaskContext
+import pkgutil
+from controller.tasks.task import TaskContext, TaskController
 from db import db_interface
 from queue_manager import command_queue, event_queue
 from common import StateEvent, ErrorEvent, States
 from controller.routes import ROUTES
-from config import TASKS, DEFAULT_TASK
+from config import DEFAULT_TASK
 from importlib import import_module
 from hardware.hal import HAL
+import controller.tasks as _tasks_pkg
 
 
 class Controller:
@@ -20,23 +22,40 @@ class Controller:
 
     def _load_tasks(self):
         self._tasks = []
-        for task in TASKS:
-            path = "controller.tasks." + task["module"]
-            module = import_module(path)
+        for importer, modname, ispkg in pkgutil.iter_modules(_tasks_pkg.__path__):
+            if modname == "task":
+                continue
+            module = import_module(f"controller.tasks.{modname}")
             task_class = None
             if hasattr(module, '__all__') and module.__all__:
                 class_name = module.__all__[0]
                 task_class = getattr(module, class_name)
-            self._tasks.append(task_class)
+            if task_class and issubclass(task_class, TaskController):
+                name = getattr(module, 'TASK_NAME', modname)
+                description = getattr(module, 'TASK_DESCRIPTION', '')
+                self._tasks.append({
+                    "name": name,
+                    "description": description,
+                    "class": task_class,
+                })
         print(self._tasks)
 
-    async def start_task(self, tasknum = DEFAULT_TASK):
-        print(f"Starting {TASKS[tasknum]["name"]}")
+    def _get_task(self, task_id=DEFAULT_TASK):
+        if isinstance(task_id, int):
+            return self._tasks[task_id]
+        for t in self._tasks:
+            if t["name"] == task_id:
+                return t
+        raise ValueError(f"Task '{task_id}' not found")
+
+    async def start_task(self, task_id=DEFAULT_TASK):
+        task_info = self._get_task(task_id)
+        print(f"Starting {task_info['name']}")
         await self._hal.open()
         self._hal.open_camera()
         await self._db.open()
         ctx = TaskContext(self._hal, event_queue, self._db)
-        task = self._tasks[tasknum](ctx)
+        task = task_info["class"](ctx)
         try: 
             await task.run()
         except Exception as e:

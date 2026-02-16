@@ -74,8 +74,8 @@ class HAL:
         if not self._homed:
             status = await self._serialController.home()
             self._homed = status == "ok"
-            await self._send_command("G92 X0 Z0")
-            if not self._homed: return False
+            result = await self._send_command("G92 X0 Z0")
+            if not self._homed and result: return False
             await self._set_vacuum(True, False)
         ret = await self._serialController.send_command(command, timeout=timeout, delimiter=delim)
         if find not in ret:
@@ -95,10 +95,9 @@ class HAL:
         height = bin.z + self._probe_safety_distance
         if not await self._move_to_height(height):
             return False
-        timeout = abs(self._bottom_limit-height)/self._probe_feedrate*60 + 2
         data = await self._send_command(
             f"G38.2 Z{self._bottom_limit} F{self._probe_feedrate}",
-            timeout=timeout,
+            timeout=100,
             delim="ok\r\n"
         )
         if not data:
@@ -114,7 +113,7 @@ class HAL:
     async def _set_vacuum(self, pump: bool, solenoid: bool) -> bool:
         if solenoid: command = "M4"
         else: command = "M3"
-        if pump: command = command + " S1000"
+        if pump: command = command + " S80"
         else: command = command + " S0"
         return bool(await self._send_command(command))
 
@@ -127,7 +126,7 @@ class HAL:
         return await self._move_to_height(self._height)
 
     async def _drop_card(self, bin: Bin) -> bool:
-        if not await self._probe_height(bin): return False
+        if not await self._probe_height(bin): raise Exception("Probing Failed")
         if not await self._set_vacuum(True, True): return False
         if not await self._send_command("G04 P0.2"): return False
         if not await self._move_to_height(bin.z + self._card_drop_offset): return False
@@ -139,7 +138,8 @@ class HAL:
             if not await self._move_to_bin(source): return False
             if not await self._lift_card(source): return False
             if not await self._move_to_bin(target): return False
-            return await self._drop_card(target)
+            if not await self._drop_card(target): return False
+            return True
         return False
 
     async def scan_card(self, source, target) -> bool|np.ndarray:
@@ -169,19 +169,16 @@ async def main():
     print(await hal.open())
     print("connected")
     bins = hal.bins
-    frame = await hal.scan_card(bins[2],bins[2])
-    if frame is not False:
-        cv2.imwrite("after.jpg", frame)
-    #binlist = [2, 3]
-    #await hal.move_card(bins[2], bins[3])
-    #start = time.time()
-    #count = 50
-    #for i in range(count):
-        #print(await hal.move_card(bins[1], bins[binlist[i%2]]))
+    binlist = [2, 3]
+    await hal.move_card(bins[2], bins[3])
+    start = time.time()
+    count = 50
+    for i in range(count):
+        await hal.move_card(bins[1], bins[binlist[i%2]])
     await hal.close()
-    #end = time.time()
-    #print("average time per move:")
-    #print((end-start)/count)
+    end = time.time()
+    print("average time per move:")
+    print((end-start)/count)
 
 if __name__ == "__main__":
     asyncio.run(main())
