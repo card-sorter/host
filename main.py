@@ -11,9 +11,8 @@ async def ainput(prompt: str) -> str:
 async def runner():
     controllertask = asyncio.create_task(controller.run_forever())
     webservertask = asyncio.create_task(websocket.run_and_wait())
-    await asyncio.sleep(1)
     while True:
-        user_message = await ainput("send command")
+        user_message = await ainput("send command\n")
         if user_message == "quit":
             break
         command_queue.put_nowait(CommandEvent(user_message))

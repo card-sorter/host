@@ -160,3 +160,7 @@ class Bin(list[Card]):
 
     def set_z(self, z:float):
         self._z = z
+
+    def __repr__(self) -> str:
+        return f"Bin at {self._x} containing {super().__repr__()}"
+        
