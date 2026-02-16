@@ -1,3 +1,6 @@
+TASK_NAME = "Sort Cards"
+TASK_DESCRIPTION = "Sort already scanned cards"
+
 from typing import List
 import cv2
 import numpy as np

@@ -3,6 +3,9 @@ Scans barcodes and adds them to the barcodes table.
 These barcodes can be used in future tasks to denote
 pre-scanned bins or that it is the bottom of the bin.
 """
+TASK_NAME = "Scan Barcodes"
+TASK_DESCRIPTION = "Scan barcodes and add to database"
+
 import asyncio
 from typing import override
 

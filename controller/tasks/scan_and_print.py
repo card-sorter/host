@@ -2,6 +2,9 @@
 Scans one card from bin 1
 Used for testing
 """
+TASK_NAME = "Scan Single Card"
+TASK_DESCRIPTION = "Scan a card and print the info"
+
 import asyncio
 import aiohttp
 import json

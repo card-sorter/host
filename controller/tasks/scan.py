@@ -1,3 +1,6 @@
+TASK_NAME = "Scan Cards"
+TASK_DESCRIPTION = "Scan cards and add to database"
+
 import cv2
 import numpy as np
 from controller.tasks.task import *

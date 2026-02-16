@@ -29,26 +29,4 @@ DATABASE = {
 }
 CAMERA_BIN = 0
 WARP_INFO = ((4608//2,2592//2), 90, 1.25)
-TASKS = [
-    {
-        "name":"Scan Single Card",
-        "module":"scan_and_print",
-        "description":"Scan a card and print the info"
-    },
-    {
-        "name":"Scan Cards",
-        "module":"scan",
-        "description":"Scan cards and add to database"
-    },
-    {
-        "name":"Scan Barcodes",
-        "module":"scan_barcodes",
-        "description":"Scan barcodes and add to database"
-    },
-    {
-        "name":"Sort Cards",
-        "module":"sort",
-        "description":"Sort already scanned cards"
-    }
-]
-DEFAULT_TASK = 3
+DEFAULT_TASK = "Sort Cards"
