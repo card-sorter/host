@@ -126,6 +126,33 @@ class StateEvent(Event):
         return self._state
 
 
+# ── HAL Exception Hierarchy ───────────────────────────────────────────
+
+class HALError(Exception):
+    """Base for all HAL-layer errors."""
+
+class ConnectionError(HALError):
+    """Serial connection failed or was lost."""
+
+class HomingError(HALError):
+    """CNC homing cycle failed."""
+
+class TimeoutError(HALError):
+    """Command timed out waiting for GRBL response."""
+
+class ProbeError(HALError):
+    """Probe command didn't trigger or returned bad data."""
+
+class MotionError(HALError):
+    """Move/G-code command failed (GRBL alarm, unexpected response)."""
+
+class CameraError(HALError):
+    """Camera capture or autofocus failure."""
+
+class VacuumError(HALError):
+    """Vacuum pump/solenoid command failed."""
+
+
 class Card:
     def __init__(self, image, data) -> None:
         self.image = image

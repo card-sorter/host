@@ -169,22 +169,21 @@ class Sort(TaskController):
         # default bins is bins without the camera bin
         for b in range(1, len(self.ctx.default_bins)+1):
             img = await self.ctx.hal.scan_card(bins[b], bins[b])
-            if img is not False:
-                barcode = self.scan_barcode(img)
-                if barcode:
-                    # load bin from db
-                    bins[b].barcode = barcode
-                    bins[b].id = await self.ctx.database.check_barcode(barcode)
-                    if bins[b].id:
-                        bins[b].clear()
-                        #b.extend(await self.ctx.database.load_bin(b.id))
-                        bins[b].scanned = True
-                        if bins[b].empty:
-                            target = b
-                    else:
+            barcode = self.scan_barcode(img)
+            if barcode:
+                # load bin from db
+                bins[b].barcode = barcode
+                bins[b].id = await self.ctx.database.check_barcode(barcode)
+                if bins[b].id:
+                    bins[b].clear()
+                    #b.extend(await self.ctx.database.load_bin(b.id))
+                    bins[b].scanned = True
+                    if bins[b].empty:
                         target = b
                 else:
-                    source_bins.append(b)
+                    target = b
+            else:
+                source_bins.append(b)
         print("part 2")
         print(source_bins)
         if not target:
@@ -192,22 +191,21 @@ class Sort(TaskController):
         for b in source_bins:
             while True:
                 img = await self.ctx.hal.scan_card(bins[b], bins[target])
-                if img is not False:
-                    barcode = self.scan_barcode(img)
-                    if barcode:
-                        # move barcode back to the bin it came from
-                        # the barcode means that it's at the bottom of the bin, so we move on
-                        print(await self.ctx.hal.move_card(bins[target], bins[b]))
-                        bins[target].scanned = True
-                        target = b
-                        break
-                    success, encoded = cv2.imencode('.jpg', img)
-                    image_bytes = encoded.tobytes()
-                    card = await self.scan_api(image_bytes)
-                    cardObj = CardObj(card[0]['details']['product_id'])
-                    stacks[target].push(cardObj)
-                    all.append(cardObj.value)
-                    bins[target].append(card[0]['details']['name'])
+                barcode = self.scan_barcode(img)
+                if barcode:
+                    # move barcode back to the bin it came from
+                    # the barcode means that it's at the bottom of the bin, so we move on
+                    await self.ctx.hal.move_card(bins[target], bins[b])
+                    bins[target].scanned = True
+                    target = b
+                    break
+                success, encoded = cv2.imencode('.jpg', img)
+                image_bytes = encoded.tobytes()
+                card = await self.scan_api(image_bytes)
+                cardObj = CardObj(card[0]['details']['product_id'])
+                stacks[target].push(cardObj)
+                all.append(cardObj.value)
+                bins[target].append(card[0]['details']['name'])
         print(self.ctx.default_bins)
         all.sort()
         sorter = GreedyDigSort(stacks, all)

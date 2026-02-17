@@ -6,7 +6,7 @@ Drop-in replacement for hardware.cnc_serial.SerialController — no hardware nee
 import asyncio
 import re
 from queue_manager import event_queue
-from common import NotifyEvent, ErrorEvent
+from common import NotifyEvent, ErrorEvent, ConnectionError, TimeoutError, HomingError
 
 
 class MockSerialController:
@@ -40,17 +40,16 @@ class MockSerialController:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
-    async def open(self) -> str:
+    async def open(self):
         self._command_lock = asyncio.Lock()
 
         if self.simulate_disconnect:
             event_queue.put_nowait(ErrorEvent(f"Error when connecting to {self.port}: simulated disconnect"))
-            return f"Error when connecting to {self.port}: simulated disconnect"
+            raise ConnectionError(f"Error when connecting to {self.port}: simulated disconnect")
 
         self._connected = True
         self._pos = [0.0, 0.0, 0.0]
         event_queue.put_nowait(NotifyEvent(f"Connected to {self.port}"))
-        return f"Connected to {self.port}"
 
     async def close(self):
         if self._connected:
@@ -60,7 +59,7 @@ class MockSerialController:
     async def send_command(self, command: str, delimiter: str = "\n", timeout: float = 30.0) -> str:
         if not self._connected:
             event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
-            return "Not Connected"
+            raise ConnectionError(f"Not connected to {self.port}")
 
         async with self._command_lock:
             cmd = command.strip()
@@ -72,11 +71,11 @@ class MockSerialController:
             if self.simulate_timeout:
                 event_queue.put_nowait(ErrorEvent(f"Timeout on {self.port} when running {command}"))
                 self._connected = False
-                return "Timeout"
+                raise TimeoutError(f"Timeout on {self.port} when running {command}")
 
             if self.simulate_disconnect:
                 self._connected = False
-                return "Not Connected"
+                raise ConnectionError(f"Not connected to {self.port}")
 
             return self._process_command(cmd)
 
@@ -191,10 +190,10 @@ class MockSerialController:
     async def home(self):
         if not self._connected:
             event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
-            return None
+            raise ConnectionError(f"Not connected to {self.port}")
         result = await self.send_command("$H\n")
         if result.find("ok\r\n") > -1:
             await self.send_command("G92 X0 Y0 Z0")
-            return "ok"
+            return
         event_queue.put_nowait(ErrorEvent(f"Homing failed on {self.port}: {result}"))
-        return result
+        raise HomingError(f"Homing failed on {self.port}: {result}")

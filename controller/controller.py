@@ -3,7 +3,7 @@ import pkgutil
 from controller.tasks.task import TaskContext, TaskController
 from db import db_interface
 from queue_manager import command_queue, event_queue
-from common import StateEvent, ErrorEvent, States
+from common import StateEvent, ErrorEvent, States, HALError, ConnectionError, CameraError
 from controller.routes import ROUTES
 from config import DEFAULT_TASK
 from importlib import import_module
@@ -51,19 +51,31 @@ class Controller:
     async def start_task(self, task_id=DEFAULT_TASK):
         task_info = self._get_task(task_id)
         print(f"Starting {task_info['name']}")
-        await self._hal.open()
-        self._hal.open_camera()
+        try:
+            await self._hal.open()
+        except ConnectionError as e:
+            event_queue.put_nowait(ErrorEvent(f"Failed to connect: {e}"))
+            await self.set_state(new_state=States.FINISHED)
+            return
+        try:
+            self._hal.open_camera()
+        except CameraError as e:
+            event_queue.put_nowait(ErrorEvent(f"Camera error: {e}"))
+            await self._hal.close()
+            await self.set_state(new_state=States.FINISHED)
+            return
         await self._db.open()
         ctx = TaskContext(self._hal, event_queue, self._db)
         task = task_info["class"](ctx)
-        try: 
+        try:
             await task.run()
+        except HALError as e:
+            event_queue.put_nowait(ErrorEvent(f"Hardware error: {e}"))
         except Exception as e:
-            print(e)
-            await self.set_state(new_state = States.FINISHED)
+            event_queue.put_nowait(ErrorEvent(f"Task error: {e}"))
         await self._hal.close()
         await self._db.close()
-        await self.set_state(new_state = States.FINISHED)
+        await self.set_state(new_state=States.FINISHED)
 
 
     async def on_state_change(self, message: str | None = None):

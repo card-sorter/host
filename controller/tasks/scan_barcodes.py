@@ -33,28 +33,24 @@ class ScanBarcodes(TaskController):
         print(bins)
         for b in bins:
             img = await self.ctx.hal.scan_card(b, b)
-            if img is not False:
-                if self.scan_barcode(img) is None:
-                    b.scanned = True
-                    target = b
-                    bins.remove(b)
-                    break
-            else:
-                raise Exception("Take image failed")
+            if self.scan_barcode(img) is None:
+                b.scanned = True
+                target = b
+                bins.remove(b)
+                break
         async with asyncio.TaskGroup() as tg:
             print(bins)
             for b in bins:
                 print(b)
                 while True:
                     img = await self.ctx.hal.scan_card(b, target)
-                    if img is not False:
-                        text = self.scan_barcode(img)
-                        print(text)
-                        if text:
-                            tg.create_task(self.ctx.database.add_barcode(text))
-                        else:
-                            target = b
-                            break
+                    text = self.scan_barcode(img)
+                    print(text)
+                    if text:
+                        tg.create_task(self.ctx.database.add_barcode(text))
+                    else:
+                        target = b
+                        break
         return
 
 __all__ = ["ScanBarcodes"]

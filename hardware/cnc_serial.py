@@ -36,7 +36,8 @@ class SerialController:
             if e.errno == 5:
                 self._loop.remove_reader(self._serial.fd)
                 if self._rfuture:
-                    self._rfuture.set_result("disconnected unexpectedly")
+                    self._rfuture.set_exception(ConnectionError(f"Disconnected unexpectedly from {self.port}"))
+                    self._rfuture = None
                 self._serial.close()
                 self._serial = None
 
@@ -73,14 +74,13 @@ class SerialController:
     async def send_command(self, command: str, delimiter: str="\n", timeout: float=30.0)->str:
         """
         Send a command to GRBL.
-        Will return a string including the delimiter upon command completion.
-        Upon timeout, will return 'Timeout' and close the connection.
-        If not connected, will return None.
+        Returns a string including the delimiter upon command completion.
+        Raises TimeoutError on timeout, ConnectionError if not connected.
         """
         if self._serial is None:
             event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
-            return "Not Connected"
-        
+            raise ConnectionError(f"Not connected to {self.port}")
+
         # Acquire the lock to ensure commands are serialized
         async with self._command_lock:
             # Wait for any pending read to complete
@@ -90,13 +90,13 @@ class SerialController:
             self._clear_buffer()
             self._rfuture = self._loop.create_future()
             self._delimiter = delimiter.encode("utf-8")
-            
+
             if command.find("\n") == -1:
                 command = command + "\n"
             command = command.encode("utf-8")
-            
+
             await self._write(command)
-            
+
             try:
                 ret = await asyncio.wait_for(self._rfuture, timeout)
                 decoded = ret.decode("utf-8")
@@ -109,7 +109,7 @@ class SerialController:
                 await self.close()
                 self._rfuture = None
                 self._rbuf = b""
-                return "Timeout"
+                raise TimeoutError(f"Timeout on {self.port} when running {command}")
 
     async def get_position(self)->dict|bool:
         pos = await self.send_command("?")
@@ -138,20 +138,17 @@ class SerialController:
 
         return ret
 
-    async def open(self)->str:
+    async def open(self):
         """
         Open the connection to GRBL.
-        Returns "Connected to {self.port}" if connection is successful.
-        Will return "Connection timeout to {self.port}" if connection times out.
-        Other errors include:
-        "Serial error when connecting to {self.port}: {e}"
-        "Error when connecting to {self.port}: {e}"
+        Returns None on success.
+        Raises ConnectionError on failure.
         """
         try:
             # Get the running event loop and create the lock
             self._loop = asyncio.get_running_loop()
             self._command_lock = asyncio.Lock()
-            
+
             self._rfuture = self._loop.create_future()
             self._delimiter = config.GRBL_CONNECTION
             self._serial = serial.Serial(self.port, self._baud_rate)
@@ -161,17 +158,19 @@ class SerialController:
             await asyncio.sleep(0.5)
             self._clear_buffer()
             event_queue.put_nowait(NotifyEvent(f"Connected to {self.port}"))
-            return f"Connected to {self.port}"
 
         except asyncio.TimeoutError:
             event_queue.put_nowait(ErrorEvent(f"Timeout when connecting to {self.port}"))
             await self.close()
-            return f"Connection timeout to {self.port}"
+            raise ConnectionError(f"Connection timeout to {self.port}")
+
+        except ConnectionError:
+            raise
 
         except Exception as e:
             event_queue.put_nowait(ErrorEvent(f"Error when connecting to {self.port}: {e}"))
             await self.close()
-            return f"Error when connecting to {self.port}: {e}"
+            raise ConnectionError(f"Error when connecting to {self.port}: {e}")
 
     async def close(self):
         """
@@ -186,19 +185,18 @@ class SerialController:
     async def home(self):
         """
         Homes the CNC machine.
-        Returns "ok" if homing successful.
-        Returns the error from GRBL if there is an error.
-        Returns None if not connected.
+        Returns None on success.
+        Raises HomingError on failure, ConnectionError if not connected.
         """
-        if self._serial is not None:
-            result = await self.send_command("$H\n")
-            if result.find("ok\r\n") > -1:
-                await self.send_command("G92 X0 Y0 Z0")
-                return "ok"
-            event_queue.put_nowait(ErrorEvent(f"Homing failed on {self.port}: {result}"))
-            return result
-        event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
-        return None
+        if self._serial is None:
+            event_queue.put_nowait(ErrorEvent(f"Not connected to {self.port}"))
+            raise ConnectionError(f"Not connected to {self.port}")
+        result = await self.send_command("$H\n")
+        if result.find("ok\r\n") > -1:
+            await self.send_command("G92 X0 Y0 Z0")
+            return
+        event_queue.put_nowait(ErrorEvent(f"Homing failed on {self.port}: {result}"))
+        raise HomingError(f"Homing failed on {self.port}: {result}")
 
 
 async def main():
