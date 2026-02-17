@@ -42,14 +42,10 @@ class ScanAndPrint(TaskController):
         bins = self.ctx.default_bins
         print("taking img")
         img = await self.ctx.hal.scan_card(bins[0], bins[0])
-        if img is not False:
-            cv2.imwrite("test.jpg", img)
-            success, encoded = cv2.imencode('.jpg', img)
-            image_bytes = encoded.tobytes()
-            result = await send_request(image_bytes)
-            print(result)
-
-        else:
-            raise Exception("Take image failed")
+        cv2.imwrite("test.jpg", img)
+        success, encoded = cv2.imencode('.jpg', img)
+        image_bytes = encoded.tobytes()
+        result = await send_request(image_bytes)
+        print(result)
 
 __all__ = ['ScanAndPrint']

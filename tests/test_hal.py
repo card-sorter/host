@@ -4,7 +4,10 @@ import pytest
 import numpy as np
 
 import config
-from common import Bin
+from common import (
+    Bin, ConnectionError, HomingError, TimeoutError,
+    ProbeError, CameraError, HALError,
+)
 from tests.mock_serial import MockSerialController
 
 
@@ -21,9 +24,8 @@ class TestHALConnection:
         h._serialController = mock
         h._connected = False
 
-        result = await h.open()
+        await h.open()
 
-        assert result is True
         assert h._connected is True
 
     @pytest.mark.asyncio
@@ -35,9 +37,8 @@ class TestHALConnection:
         h._serialController = mock
         h._connected = False
 
-        result = await h.open()
-
-        assert result is False
+        with pytest.raises(ConnectionError):
+            await h.open()
         assert h._connected is False
 
     @pytest.mark.asyncio
@@ -78,15 +79,13 @@ class TestHALMovement:
     @pytest.mark.asyncio
     async def test_move_to_bin(self, hal):
         target = hal.bins[1]
-        result = await hal._move_to_bin(target)
-        assert result is True
+        await hal._move_to_bin(target)
         mock: MockSerialController = hal._serialController
         assert any(f"G0 X{target.x} Y{target.y}" in cmd for cmd in mock.command_log)
 
     @pytest.mark.asyncio
     async def test_move_to_height(self, hal):
-        result = await hal._move_to_height(-10)
-        assert result is True
+        await hal._move_to_height(-10)
         mock: MockSerialController = hal._serialController
         assert any("G0 Z-10" in cmd for cmd in mock.command_log)
 
@@ -108,6 +107,13 @@ class TestHALMovement:
         home_count_after = sum(1 for c in mock.command_log if "$H" in c)
         assert home_count_after == home_count_before
 
+    @pytest.mark.asyncio
+    async def test_ensure_homed_raises_homing_error(self, hal):
+        mock: MockSerialController = hal._serialController
+        mock.simulate_home_error = True
+        with pytest.raises(HomingError):
+            await hal._ensure_homed()
+
 
 # ---------------------------------------------------------------------------
 # TestHALProbing
@@ -120,20 +126,19 @@ class TestHALProbing:
         hal._homed = True
         b = hal.bins[1]
         original_z = b.z
-        result = await hal._probe_height(b)
-        assert result is True
+        await hal._probe_height(b)
         # Bin Z should have been updated from PRB response
         assert b.z != original_z
 
     @pytest.mark.asyncio
-    async def test_probe_failure(self, hal):
+    async def test_probe_failure_timeout(self, hal):
         hal._homed = True
         b = hal.bins[1]
         mock: MockSerialController = hal._serialController
-        # Simulate timeout during probe — mock returns "Timeout" which has no PRB
+        # Simulate timeout during probe
         mock.simulate_timeout = True
-        result = await hal._probe_height(b)
-        assert result is False
+        with pytest.raises(TimeoutError):
+            await hal._probe_height(b)
 
 
 # ---------------------------------------------------------------------------
@@ -172,14 +177,13 @@ class TestHALMoveCard:
     async def test_move_card_success(self, hal):
         source = hal.bins[1]
         target = hal.bins[2]
-        result = await hal.move_card(source, target)
-        assert result is True
+        await hal.move_card(source, target)
 
     @pytest.mark.asyncio
     async def test_move_card_not_connected(self, hal):
         hal._connected = False
-        result = await hal.move_card(hal.bins[1], hal.bins[2])
-        assert result is False
+        with pytest.raises(ConnectionError):
+            await hal.move_card(hal.bins[1], hal.bins[2])
 
     @pytest.mark.asyncio
     async def test_move_card_command_sequence(self, hal):
@@ -211,8 +215,8 @@ class TestHALScanCard:
     @pytest.mark.asyncio
     async def test_scan_card_no_camera(self, hal):
         assert hal._camera is None
-        result = await hal.scan_card(hal.bins[1], hal.bins[2])
-        assert result is False
+        with pytest.raises(CameraError):
+            await hal.scan_card(hal.bins[1], hal.bins[2])
 
     @pytest.mark.asyncio
     async def test_scan_card_command_sequence(self, connected_hal):
@@ -240,8 +244,7 @@ class TestHALLiftDrop:
     async def test_lift_card(self, hal):
         hal._homed = True
         b = hal.bins[1]
-        result = await hal._lift_card(b)
-        assert result is True
+        await hal._lift_card(b)
         mock: MockSerialController = hal._serialController
         log = mock.command_log
         # Should contain: probe, vacuum (M3 S80), slow lift (G01), fast lift (G01), move up (G0 Z0)
@@ -254,8 +257,7 @@ class TestHALLiftDrop:
     async def test_drop_card(self, hal):
         hal._homed = True
         b = hal.bins[2]
-        result = await hal._drop_card(b)
-        assert result is True
+        await hal._drop_card(b)
         mock: MockSerialController = hal._serialController
         log = mock.command_log
         # Should contain: probe, vacuum release (M4 S80), dwell, move up
@@ -263,3 +265,69 @@ class TestHALLiftDrop:
         assert any("M4 S80" in cmd for cmd in log)
         assert any("G04" in cmd for cmd in log)
         assert any(f"G0 Z{hal._height}" in cmd for cmd in log)
+
+
+# ---------------------------------------------------------------------------
+# TestHALSafeState
+# ---------------------------------------------------------------------------
+
+class TestHALSafeState:
+    @pytest.mark.asyncio
+    async def test_safe_state_does_not_raise(self, hal):
+        """_safe_state should never raise, even if commands fail."""
+        hal._homed = True
+        mock: MockSerialController = hal._serialController
+        mock.simulate_timeout = True
+        # Should not raise
+        await hal._safe_state()
+
+    @pytest.mark.asyncio
+    async def test_safe_state_attempts_recovery(self, hal):
+        """_safe_state should try to raise head and turn off vacuum."""
+        hal._homed = True
+        await hal._safe_state()
+        mock: MockSerialController = hal._serialController
+        log = mock.command_log
+        assert any(f"G0 Z{hal._height}" in cmd for cmd in log)
+        assert any("M3 S0" in cmd for cmd in log)
+
+    @pytest.mark.asyncio
+    async def test_move_card_calls_safe_state_on_error(self, hal):
+        """move_card should call _safe_state on HALError before re-raising."""
+        hal._homed = True
+        mock: MockSerialController = hal._serialController
+        # Let the first few commands succeed, then fail on probe
+        original_process = mock._process_command
+        call_count = [0]
+        def failing_process(cmd):
+            call_count[0] += 1
+            # Fail on probe command
+            if cmd.upper().startswith("G38.2"):
+                return "error:probe\r\n"
+            return original_process(cmd)
+        mock._process_command = failing_process
+
+        with pytest.raises(ProbeError):
+            await hal.move_card(hal.bins[1], hal.bins[2])
+
+
+# ---------------------------------------------------------------------------
+# TestHALTimeoutPropagation
+# ---------------------------------------------------------------------------
+
+class TestHALTimeoutPropagation:
+    @pytest.mark.asyncio
+    async def test_timeout_propagates_through_send_command(self, hal):
+        hal._homed = True
+        mock: MockSerialController = hal._serialController
+        mock.simulate_timeout = True
+        with pytest.raises(TimeoutError):
+            await hal._send_command("G0 X10")
+
+    @pytest.mark.asyncio
+    async def test_connection_error_propagates(self, hal):
+        hal._homed = True
+        mock: MockSerialController = hal._serialController
+        mock.simulate_disconnect = True
+        with pytest.raises(ConnectionError):
+            await hal._send_command("G0 X10")

@@ -40,39 +40,37 @@ class Scan(TaskController):
         source_bins = []
         for b in self.ctx.default_bins:
             img = await self.ctx.hal.scan_card(b, b)
-            if img is not False:
-                barcode = self.scan_barcode(img)
-                if barcode:
-                    # load bin from db
-                    b.barcode = barcode
-                    b.id = await self.ctx.database.check_barcode(barcode)
-                    if b.id:
-                        b.clear()
-                        #b.extend(await self.ctx.database.load_bin(b.id))
-                        b.scanned = True
-                        if b.empty:
-                            target = b
-                    else:
+            barcode = self.scan_barcode(img)
+            if barcode:
+                # load bin from db
+                b.barcode = barcode
+                b.id = await self.ctx.database.check_barcode(barcode)
+                if b.id:
+                    b.clear()
+                    #b.extend(await self.ctx.database.load_bin(b.id))
+                    b.scanned = True
+                    if b.empty:
                         target = b
                 else:
-                    source_bins.append(b)
+                    target = b
+            else:
+                source_bins.append(b)
         print("part 2")
         print(source_bins)
         for b in source_bins:
             while True:
                 img = await self.ctx.hal.scan_card(b, target)
-                if img is not False:
-                    barcode = self.scan_barcode(img)
-                    if barcode:
-                        await self.ctx.hal.move_card(target, b)
-                        target.scanned = True
-                        target = b
-                        break
-                    success, encoded = cv2.imencode('.jpg', img)
-                    image_bytes = encoded.tobytes()
-                    card = await self.scan_api(image_bytes)
-                    print(card[0])
-                    target.append(card[0]['details']['name'])
+                barcode = self.scan_barcode(img)
+                if barcode:
+                    await self.ctx.hal.move_card(target, b)
+                    target.scanned = True
+                    target = b
+                    break
+                success, encoded = cv2.imencode('.jpg', img)
+                image_bytes = encoded.tobytes()
+                card = await self.scan_api(image_bytes)
+                print(card[0])
+                target.append(card[0]['details']['name'])
         print(self.ctx.default_bins)
         await asyncio.sleep(0)
 

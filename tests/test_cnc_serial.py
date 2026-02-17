@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 
+from common import ConnectionError, TimeoutError, HomingError
 from tests.mock_serial import MockSerialController
 
 pytestmark = pytest.mark.asyncio
@@ -11,20 +12,14 @@ pytestmark = pytest.mark.asyncio
 
 class TestConnection:
     async def test_open_success(self, mock_serial):
-        result = await mock_serial.open()
-        assert result == "Connected to /dev/ttyTEST"
+        await mock_serial.open()
         assert mock_serial._connected is True
-
-    async def test_open_returns_connected_message(self, mock_serial):
-        result = await mock_serial.open()
-        assert "Connected" in result
-        assert mock_serial.port in result
 
     async def test_open_twice(self, mock_serial):
         await mock_serial.open()
-        result = await mock_serial.open()
+        await mock_serial.open()
         # Second open should still succeed (reinitializes)
-        assert "Connected" in result
+        assert mock_serial._connected is True
 
     async def test_close(self, connected_serial):
         await connected_serial.close()
@@ -43,8 +38,8 @@ class TestConnection:
 
     async def test_open_simulated_disconnect(self, mock_serial):
         mock_serial.simulate_disconnect = True
-        result = await mock_serial.open()
-        assert "Error" in result
+        with pytest.raises(ConnectionError):
+            await mock_serial.open()
         assert mock_serial._connected is False
 
 
@@ -61,13 +56,13 @@ class TestSendCommand:
         assert "G0 X10" in connected_serial.command_log
 
     async def test_send_command_not_connected(self, mock_serial):
-        result = await mock_serial.send_command("G0 X0")
-        assert result == "Not Connected"
+        with pytest.raises(ConnectionError):
+            await mock_serial.send_command("G0 X0")
 
     async def test_send_command_timeout(self, connected_serial):
         connected_serial.simulate_timeout = True
-        result = await connected_serial.send_command("G0 X0")
-        assert result == "Timeout"
+        with pytest.raises(TimeoutError):
+            await connected_serial.send_command("G0 X0")
         # Connection should be closed after timeout
         assert connected_serial._connected is False
 
@@ -95,8 +90,7 @@ class TestSendCommand:
 
 class TestHoming:
     async def test_home_success(self, connected_serial):
-        result = await connected_serial.home()
-        assert result == "ok"
+        await connected_serial.home()
         assert connected_serial._homed is True
 
     async def test_home_resets_position(self, connected_serial):
@@ -105,14 +99,13 @@ class TestHoming:
         assert connected_serial._pos == [0.0, 0.0, 0.0]
 
     async def test_home_not_connected(self, mock_serial):
-        result = await mock_serial.home()
-        assert result is None
+        with pytest.raises(ConnectionError):
+            await mock_serial.home()
 
     async def test_home_failure(self, connected_serial):
         connected_serial.simulate_home_error = True
-        result = await connected_serial.home()
-        assert result != "ok"
-        assert "error" in result
+        with pytest.raises(HomingError):
+            await connected_serial.home()
 
 
 # ── Position queries ──────────────────────────────────────────────────
@@ -143,9 +136,8 @@ class TestGetPosition:
         assert connected_serial._WCO == pos["WCO"]
 
     async def test_get_position_not_connected(self, mock_serial):
-        pos = await mock_serial.get_position()
-        # send_command returns "Not Connected" which has no ">"
-        assert pos is False
+        with pytest.raises(ConnectionError):
+            await mock_serial.get_position()
 
 
 # ── Position tracking ─────────────────────────────────────────────────
